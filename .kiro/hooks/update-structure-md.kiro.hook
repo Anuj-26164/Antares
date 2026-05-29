@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Update structure.md",
+  "description": "Manually triggered hook to update structure.md with any new files, features, libraries, or architecture decisions added since the last update.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Check if any new files, components, routes, libraries, or architecture decisions were added recently. If so, update structure.md to reflect the changes. Only update if there are actual new additions."
+  }
+}

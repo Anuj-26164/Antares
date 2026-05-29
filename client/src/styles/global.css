@@ -1,0 +1,107 @@
+/* ── Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700,900&f[]=clash-display@400,500,600,700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  /* ── Color palette ── */
+  --color-obsidian: #09090b;
+  --color-ink:      #18181b;
+  --color-graphite: #3f3f46;
+  --color-steel:    #71717a;
+  --color-ash:      #a1a1aa;
+  --color-fog:      #ececee;
+  --color-mist:     #09090b;
+  --color-snow:     #f4f4f5;
+  --color-ember:    #ff5a00;
+  --color-orchid-flash: #fe45e2;
+  --color-brand:    #60A5FA;
+
+  /* ── Semantic aliases ── */
+  --color-primary:     #ff5a00;
+  --color-accent:      #fe45e2;
+  --color-surface:     #09090b;
+  --color-surface-alt: #18181b;
+  --color-on-surface:  #f4f4f5;
+  --color-muted:       #a1a1aa;
+  --color-border:      #3f3f46;
+
+  /* ── Fonts ── */
+  --font-sans:    'Geist', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Geist', 'Clash Display', 'Satoshi', sans-serif;
+  --font-heading: 'Geist', 'Satoshi', 'Clash Display', sans-serif;
+
+  /* ── Radii ── */
+  --radius-badge:        12px;
+  --radius-input:        14px;
+  --radius-btn-rect:     16px;
+  --radius-card-compact: 28px;
+  --radius-card:         36px;
+  --radius-pill:         9999px;
+  --radius-hero:         48px;
+  --radius-full:         10000px;
+}
+
+/* ── Base — always dark ── */
+html, body {
+  font-family: 'Geist', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  background-color: #09090b;
+  color: #f4f4f5;
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Display / Heading font utility ── */
+.font-display {
+  font-family: 'Clash Display', 'Satoshi', sans-serif;
+}
+
+.font-heading {
+  font-family: 'Satoshi', 'Clash Display', sans-serif;
+}
+
+/* ── Shadow tokens ── */
+:root {
+  --shadow-btn: rgba(255,255,255,0.08) 0px 0.5px 0px 0px inset,
+    rgba(0,0,0,0.5) 0px 9px 14px -5px inset,
+    rgb(80,80,90) 0px 0px 0px 1.5px,
+    rgba(0,0,0,0.4) 0px 4px 6px 0px;
+  --shadow-card: rgba(0,0,0,0.3) 0px 4px 12px 0px;
+}
+
+/* ── Utility overrides for dark palette ── */
+.bg-mist     { background-color: #09090b; }
+.bg-snow     { background-color: #18181b; }
+.bg-fog      { background-color: #27272a; }
+.text-ink    { color: #f4f4f5; }
+.text-obsidian { color: #f4f4f5; }
+.text-steel  { color: #a1a1aa; }
+.border-fog  { border-color: #3f3f46; }
+.border-graphite { border-color: #52525b; }
+
+/* ── Ticker animation ── */
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ── Reduced motion guard ── */
+@media (prefers-reduced-motion: reduce) {
+  .ticker-wrapper,
+  [class*="ticker"] {
+    animation: none !important;
+  }
+}
+
+/* ── Hide scrollbar ── */
+::-webkit-scrollbar {
+  display: none;
+}
+
+html {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
