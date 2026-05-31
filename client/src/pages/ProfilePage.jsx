@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../store/authStore.js';
 import api from '../utils/api.js';
-import { getUserAvatar } from '../utils/avatar.js';
+import { getUserAvatar, getFallbackAvatar } from '../utils/avatar.js';
 import { formatRole } from '../utils/formatters.js';
 import Input from '../components/common/Input.jsx';
 import BackButton from '../components/common/BackButton.jsx';
@@ -176,6 +176,12 @@ export default function ProfilePage() {
                       src={displayAvatar}
                       alt={user?.name || 'User'}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const fallback = getFallbackAvatar(user);
+                        if (e.currentTarget.src !== fallback) {
+                          e.currentTarget.src = fallback;
+                        }
+                      }}
                     />
                   </div>
                   {editing && !saving && (

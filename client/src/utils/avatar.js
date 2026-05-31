@@ -39,3 +39,10 @@ export function getUserAvatar(user) {
   if (user?.avatar && user.avatar.trim().length > 0) return user.avatar;
   return getRandomAvatar(user?.name || user?.email || 'user');
 }
+
+/**
+ * Fallback avatar (initials SVG) for use in <img onError>.
+ */
+export function getFallbackAvatar(user) {
+  return getRandomAvatar(user?.name || user?.email || 'user');
+}

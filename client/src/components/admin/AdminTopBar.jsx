@@ -5,9 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Bell } from 'lucide-react';
 import useAuthStore from '../../store/authStore.js';
 import useNotificationStore from '../../store/notificationStore.js';
-import { getUserAvatar } from '../../utils/avatar.js';
+import { getUserAvatar, getFallbackAvatar } from '../../utils/avatar.js';
 import api from '../../utils/api.js';
-import { NotifItem } from '../common/NotifItem.jsx';
+import { NotifItem, getNotifLink } from '../common/NotifItem.jsx';
 
 const pathTitles = {
   '/admin': 'Analytics',
@@ -116,9 +116,23 @@ export default function AdminTopBar() {
               {recentNotifications.length === 0 ? (
                 <p className="px-4 py-6 text-ash text-[13px] text-center">No notifications</p>
               ) : (
-                recentNotifications.map((n) => (
-                  <NotifItem key={n._id} n={n} />
-                ))
+                recentNotifications.map((n) => {
+                  const link = getNotifLink(n);
+                  return (
+                    <NotifItem
+                      key={n._id}
+                      n={n}
+                      onClick={link ? () => {
+                        if (!n.isRead) {
+                          useNotificationStore.getState().markRead(n._id);
+                          api.patch(`/notifications/${n._id}/read`).catch(() => {});
+                        }
+                        setShowNotifications(false);
+                        navigate(link);
+                      } : undefined}
+                    />
+                  );
+                })
               )}
             </div>
           </div>,
@@ -139,7 +153,7 @@ export default function AdminTopBar() {
             className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
           >
             <div className="w-8 h-8 rounded-full bg-graphite flex items-center justify-center overflow-hidden border-2 border-transparent hover:border-brand/50 transition-all">
-              <img src={getUserAvatar(user)} alt={user?.name || 'User'} className="w-full h-full object-cover" />
+              <img src={getUserAvatar(user)} alt={user?.name || 'User'} className="w-full h-full object-cover" onError={(e) => { const fallback = getFallbackAvatar(user); if (e.currentTarget.src !== fallback) { e.currentTarget.src = fallback; } }} />
             </div>
             <span className="text-snow text-[13px] font-medium hidden sm:inline">
               {user?.name || 'Admin'}

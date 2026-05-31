@@ -12,7 +12,7 @@ export async function listNotifications(req, res, next) {
       .sort({ createdAt: -1 })
       .limit(50)
       .populate('relatedUser', 'name avatar')
-      .populate('relatedMedia', '_id type')
+      .populate('relatedMedia', '_id type eventId')
       .lean();
 
     return res.status(200).json({

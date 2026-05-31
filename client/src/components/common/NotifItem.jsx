@@ -2,6 +2,37 @@
  * Shared notification rendering helpers used by AppNavbar and AdminTopBar.
  */
 
+/**
+ * Determine the navigation path for a notification based on its type
+ * and related data.
+ *
+ * - like / comment / tag / media_upload → event album page (/events/:eventId)
+ * - user_registration → admin users panel
+ * - activity / unknown → null (no navigation)
+ */
+export function getNotifLink(n) {
+  const mediaTypes = ['like', 'comment', 'tag', 'media_upload'];
+
+  if (mediaTypes.includes(n.type)) {
+    // relatedMedia may be populated (object with _id + eventId) or just an ID string
+    const media = n.relatedMedia;
+    if (media) {
+      const eventId = typeof media === 'object' ? media.eventId : null;
+      if (eventId) return `/events/${eventId}`;
+    }
+    // Fallback: if relatedEvent exists, navigate there
+    const eventId = typeof n.relatedEvent === 'object' ? n.relatedEvent?._id : n.relatedEvent;
+    if (eventId) return `/events/${eventId}`;
+    // Last resort: gallery page
+    return '/gallery';
+  }
+
+  if (n.type === 'user_registration') {
+    return '/admin/users';
+  }
+
+  return null;
+}
 /** Icon per notification type */
 export function NotifIcon({ type }) {
   if (type === 'like') return (
@@ -46,12 +77,16 @@ export function relativeTime(dateStr) {
 }
 
 /** Single notification row */
-export function NotifItem({ n }) {
+export function NotifItem({ n, onClick }) {
   return (
     <div
-      className={`flex items-start gap-3 px-4 py-3 border-b border-graphite/30 ${
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      className={`flex items-start gap-3 px-4 py-3 border-b border-graphite/30 transition-colors ${
         !n.isRead ? 'bg-blue-500/5' : ''
-      }`}
+      } ${onClick ? 'cursor-pointer hover:bg-white/5' : ''}`}
     >
       <NotifIcon type={n.type} />
       <div className="flex-1 min-w-0">

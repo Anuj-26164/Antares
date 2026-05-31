@@ -5,9 +5,9 @@ import { Bell } from 'lucide-react';
 import useAuthStore from '../../store/authStore.js';
 import useNotificationStore from '../../store/notificationStore.js';
 import api from '../../utils/api.js';
-import { getUserAvatar } from '../../utils/avatar.js';
+import { getUserAvatar, getFallbackAvatar } from '../../utils/avatar.js';
 import PillNav from '../common/PillNav.jsx';
-import { NotifItem } from '../common/NotifItem.jsx';
+import { NotifItem, getNotifLink } from '../common/NotifItem.jsx';
 
 const BRAND_DARK = '#120F17';
 const BRAND_BLUE = '#60A5FA';
@@ -164,6 +164,12 @@ export default function AppNavbar() {
           src={getUserAvatar(user)}
           alt={user?.name || 'Profile'}
           className="w-full h-full object-cover"
+          onError={(e) => {
+            const fallback = getFallbackAvatar(user);
+            if (e.currentTarget.src !== fallback) {
+              e.currentTarget.src = fallback;
+            }
+          }}
         />
       </button>
     </div>
@@ -275,9 +281,24 @@ export default function AppNavbar() {
             {list.length === 0 ? (
               <p className="px-4 py-8 text-ash text-[13px] text-center">All caught up!</p>
             ) : (
-              list.slice(0, 10).map((n) => (
-                <NotifItem key={n._id} n={n} />
-              ))
+              list.slice(0, 10).map((n) => {
+                const link = getNotifLink(n);
+                return (
+                  <NotifItem
+                    key={n._id}
+                    n={n}
+                    onClick={link ? () => {
+                      // Mark as read locally + on server
+                      if (!n.isRead) {
+                        useNotificationStore.getState().markRead(n._id);
+                        api.patch(`/notifications/${n._id}/read`).catch(() => {});
+                      }
+                      setNotifOpen(false);
+                      navigate(link);
+                    } : undefined}
+                  />
+                );
+              })
             )}
           </div>
         </div>

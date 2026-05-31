@@ -34,7 +34,7 @@ export function subscribeToNotifications() {
       isRead:      false,
       createdAt:   new Date().toISOString(),
       relatedUser: payload?.by ?? null,
-      relatedMedia:payload?.mediaId ? { _id: payload.mediaId } : null,
+      relatedMedia:payload?.mediaId ? { _id: payload.mediaId, eventId: payload?.eventId || null } : null,
       relatedEvent:payload?.eventId ? { _id: payload.eventId } : null,
     };
     useNotificationStore.getState().addNotification(n);

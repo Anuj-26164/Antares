@@ -38,7 +38,7 @@ function normalise(raw) {
     isRead:      raw.isRead ?? false,
     createdAt:   raw.createdAt ?? new Date().toISOString(),
     relatedUser: raw.relatedUser ?? raw.by ?? null,
-    relatedMedia:raw.relatedMedia ?? (raw.mediaId ? { _id: raw.mediaId } : null),
+    relatedMedia:raw.relatedMedia ?? (raw.mediaId ? { _id: raw.mediaId, eventId: raw.eventId || null } : null),
     relatedEvent:raw.relatedEvent ?? (raw.eventId ? { _id: raw.eventId } : null),
     recipient:   raw.recipient ?? null,
   };
