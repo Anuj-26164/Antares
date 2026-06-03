@@ -23,6 +23,13 @@ const mediaSchema = new Schema({
     required: true,
     maxlength: 512
   },
+  // Path to the unmodified original (pre-compression) for full-quality
+  // downloads. Optional so legacy records without an original still work
+  // — the download endpoint falls back to r2Key in that case.
+  originalR2Key: {
+    type: String,
+    maxlength: 512
+  },
   type: {
     type: String,
     enum: ['photo', 'video'],
@@ -35,6 +42,11 @@ const mediaSchema = new Schema({
   thumbnailR2Key: {
     type: String,
     maxlength: 512
+  },
+  caption: {
+    type: String,
+    maxlength: 500,
+    default: ''
   },
   tags: {
     type: [String],
