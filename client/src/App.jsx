@@ -23,7 +23,6 @@ import EventManagementPanel from './pages/admin/EventManagementPanel.jsx';
 import MediaManagementPanel from './pages/admin/MediaManagementPanel.jsx';
 import UserManagementPanel from './pages/admin/UserManagementPanel.jsx';
 import NotificationsPanel from './pages/admin/NotificationsPanel.jsx';
-import AIInsightsPanel from './pages/admin/AIInsightsPanel.jsx';
 import SettingsPanel from './pages/admin/SettingsPanel.jsx';
 
 const pageTransition = {
@@ -46,8 +45,8 @@ function AnimatedPage({ children }) {
   );
 }
 
-// Routes where the PillNav should NOT appear (admin has its own layout)
-const HIDE_NAVBAR_PREFIXES = ['/admin'];
+// PillNav now appears on every page, including admin routes, so the
+// top-level navigation stays consistent.
 
 export default function App() {
   const location = useLocation();
@@ -87,17 +86,13 @@ export default function App() {
     );
   }
 
-  const showNavbar = !HIDE_NAVBAR_PREFIXES.some((prefix) =>
-    location.pathname.startsWith(prefix)
-  );
-
   return (
     <div className="min-h-screen font-sans bg-obsidian">
-      {/* PillNav — fixed positioned, floats above all content */}
-      {showNavbar && <AppNavbar />}
+      {/* PillNav — fixed positioned, floats above all content on every route */}
+      <AppNavbar />
 
-      {/* Top padding to clear the fixed navbar (78px) */}
-      <div className={showNavbar ? 'pt-[86px]' : ''}>
+      {/* Top padding to clear the fixed navbar (~86px) */}
+      <div className="pt-[86px]">
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             <Route
@@ -191,7 +186,6 @@ export default function App() {
               <Route path="media" element={<MediaManagementPanel />} />
               <Route path="users" element={<UserManagementPanel />} />
               <Route path="notifications" element={<NotificationsPanel />} />
-              <Route path="ai-insights" element={<AIInsightsPanel />} />
               <Route path="settings" element={<SettingsPanel />} />
             </Route>
           </Routes>
