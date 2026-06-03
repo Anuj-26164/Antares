@@ -24,6 +24,10 @@ await connectDB();
 
 const app = express();
 
+// Trust Render's reverse proxy so express-rate-limit can correctly
+// identify client IPs from the X-Forwarded-For header.
+app.set('trust proxy', 1);
+
 // Initialize Passport
 configurePassport(passport);
 app.use(passport.initialize());
