@@ -16,8 +16,12 @@ import Comment from '../models/Comment.js';
 import Event from '../models/Event.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
-import { emitMediaUploaded, emitGalleryUpdated, emitPhotoLikedToEvent, emitNewCommentToEvent } from '../sockets/mediaSocket.js';
+import { canUserUploadToEvent } from './uploadGrantController.js';
+import { emitMediaUploaded, emitGalleryUpdated, emitPhotoLikedToEvent, emitNewCommentToEvent, emitMediaTagsUpdated, emitMediaCaptionUpdated } from '../sockets/mediaSocket.js';
 import { notifyUser, emitPhotoLikedToOwner, emitNewCommentToUser, emitUserTagged } from '../sockets/notificationSocket.js';
+import { upsertAggregatedNotification } from '../utils/notificationAggregator.js';
+import { generateImageTags } from '../utils/imageTagger.js';
+import { generateImageCaption } from '../utils/imageCaptioner.js';
 import { emitActivityUpdate } from '../sockets/activitySocket.js';
 import { detectMimeFromBuffer, isAllowedMime } from '../middleware/uploadMiddleware.js';
 
@@ -73,6 +77,62 @@ async function deleteFromR2(key) {
 }
 
 /**
+ * Run smart-tagging and (optionally) AI captioning for a freshly uploaded
+ * image without blocking the upload response. Both operations are
+ * best-effort — failures are logged and swallowed so they never affect
+ * upload success.
+ *
+ * Tagging always runs. Captioning only runs when `needsCaption` is true
+ * (i.e. the uploader left the caption field blank).
+ *
+ * @param {string} mediaId
+ * @param {string} eventId
+ * @param {Buffer} originalBuffer
+ * @param {{ title?: string, category?: string, date?: string|Date }} [eventCtx]
+ * @param {boolean} [needsCaption=false]  Whether to also fill in an AI caption.
+ */
+function processImageInBackground(mediaId, eventId, originalBuffer, eventCtx, needsCaption = false) {
+  // Tags + caption are independent calls; run them in parallel so the
+  // user's gallery card lights up as fast as possible.
+  const tagJob = generateImageTags(originalBuffer, { eventCtx })
+    .then(async (tags) => {
+      if (!Array.isArray(tags) || tags.length === 0) return;
+      try {
+        await Media.findByIdAndUpdate(mediaId, { tags });
+        emitMediaTagsUpdated(eventId, { mediaId, tags });
+      } catch (dbErr) {
+        console.error(`[smart-tag] failed to persist tags for ${mediaId}:`, dbErr.message);
+      }
+    })
+    .catch((err) => {
+      const code = err?.code;
+      if (code === 'AI_UNAVAILABLE') return;
+      console.error(`[smart-tag] tagging failed for ${mediaId} (${code || 'UNKNOWN'}):`, err.message);
+    });
+
+  const captionJob = needsCaption
+    ? generateImageCaption(originalBuffer, { eventCtx })
+        .then(async (caption) => {
+          if (!caption) return;
+          try {
+            await Media.findByIdAndUpdate(mediaId, { caption });
+            emitMediaCaptionUpdated(eventId, { mediaId, caption });
+          } catch (dbErr) {
+            console.error(`[ai-caption] failed to persist caption for ${mediaId}:`, dbErr.message);
+          }
+        })
+        .catch((err) => {
+          const code = err?.code;
+          if (code === 'AI_UNAVAILABLE') return;
+          console.error(`[ai-caption] caption failed for ${mediaId} (${code || 'UNKNOWN'}):`, err.message);
+        })
+    : Promise.resolve();
+
+  // Fire-and-forget — caller does not await.
+  Promise.allSettled([tagJob, captionJob]);
+}
+
+/**
  * Upload media handler.
  * After multer-s3 streams files to R2:
  * - For images: download original, compress with Sharp (WebP), re-upload compressed, delete original, create Media record
@@ -105,6 +165,17 @@ export async function uploadMedia(req, res, next) {
       });
     }
 
+    // Authorization: privileged roles always allowed; otherwise the user
+    // needs an approved per-event upload grant.
+    const { allowed, reason } = await canUserUploadToEvent(req.user, eventId);
+    if (!allowed) {
+      const errorMsg =
+        reason === 'no_grant'
+          ? 'You need approval from an admin to upload to this event'
+          : 'Insufficient permissions';
+      return res.status(403).json({ success: false, error: errorMsg });
+    }
+
     if (files.length === 0) {
       return res.status(400).json({
         success: false,
@@ -112,10 +183,36 @@ export async function uploadMedia(req, res, next) {
       });
     }
 
+    // Optional per-file captions. Two accepted shapes:
+    //   1. captions: JSON-stringified array aligned by index with `files`
+    //   2. captions: array of strings (when sent via multipart with multiple
+    //      same-named fields — Express + multer surface this as an array)
+    // Either way, captions[i] corresponds to files[i]. Missing / empty entries
+    // mean "let the AI fill it in".
+    let captions = [];
+    if (req.body && req.body.captions !== undefined) {
+      const raw = req.body.captions;
+      if (Array.isArray(raw)) {
+        captions = raw;
+      } else if (typeof raw === 'string') {
+        const trimmed = raw.trim();
+        if (trimmed.startsWith('[')) {
+          try { captions = JSON.parse(trimmed); } catch { captions = [trimmed]; }
+        } else {
+          captions = [trimmed];
+        }
+      }
+    }
+    const captionFor = (idx) => {
+      const c = captions[idx];
+      return typeof c === 'string' ? c.trim().slice(0, 500) : '';
+    };
+
     const uploaded = [];
     const rejected = [];
 
-    for (const file of files) {
+    for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+      const file = files[fileIndex];
       try {
         const isImage = IMAGE_MIMES.includes(file.mimetype);
         let finalKey = file.key;
@@ -140,23 +237,38 @@ export async function uploadMedia(req, res, next) {
             continue;
           }
 
-          // Compress the image (resize + convert to WebP)
+          // Compress the image (resize + convert to WebP) for the gallery view.
           const compressedBuffer = await compressImage(originalBuffer);
 
-          // Generate a new key with .webp extension
+          // Move the original from its temp upload key to a stable
+          // `originals/...` key. This preserves a full-fidelity copy that the
+          // download endpoint can serve. The compressed WebP becomes the
+          // canonical r2Key used by the gallery and existing endpoints.
           const originalKey = file.key;
           const webpKey = originalKey.replace(/\.[^.]+$/, '.webp');
+          const baseName = originalKey.split('/').pop();
+          const originalArchiveKey = `originals/${baseName}`;
 
           // Upload the compressed version to R2
           await uploadToR2(webpKey, compressedBuffer, 'image/webp');
 
-          // Delete the original uncompressed file from R2
-          if (webpKey !== originalKey) {
+          // Archive the original buffer under originals/ for full-quality
+          // downloads. We re-upload from the in-memory buffer rather than
+          // doing a server-side copy so the operation needs only one R2
+          // round trip and keeps the same content type.
+          await uploadToR2(originalArchiveKey, originalBuffer, file.mimetype);
+
+          // Delete the original from its temp upload location.
+          if (originalKey !== originalArchiveKey) {
             await deleteFromR2(originalKey);
           }
 
           finalKey = webpKey;
           finalUrl = `${config.R2_PUBLIC_URL}/${webpKey}`;
+          // Stash for the Media.create payload below.
+          file._originalArchiveKey = originalArchiveKey;
+          // Hand the original buffer off to the (post-create) smart-tagger.
+          file._originalBufferForTagging = originalBuffer;
         }
 
         // For videos, extract a thumbnail at the 1-second mark
@@ -177,6 +289,7 @@ export async function uploadMedia(req, res, next) {
         }
 
         // Create the Media record in MongoDB
+        const userCaption = captionFor(fileIndex);
         const media = await Media.create({
           eventId,
           uploadedBy: req.user._id,
@@ -184,9 +297,24 @@ export async function uploadMedia(req, res, next) {
           r2Key: finalKey,
           type: mediaType,
           isPublic: event.isPublic,
+          ...(userCaption && { caption: userCaption }),
+          ...(file._originalArchiveKey && { originalR2Key: file._originalArchiveKey }),
           ...(thumbnailUrl && { thumbnailUrl }),
           ...(thumbnailR2Key && { thumbnailR2Key }),
         });
+
+        // Best-effort smart tagging + AI captioning for images (non-blocking).
+        // Uses the in-memory original buffer so we avoid an extra R2 round-trip.
+        // AI caption only fills in when the uploader left the field blank.
+        if (isImage && file._originalBufferForTagging) {
+          processImageInBackground(
+            media._id.toString(),
+            eventId,
+            file._originalBufferForTagging,
+            { title: event.title, category: event.category, date: event.date },
+            !userCaption,
+          );
+        }
 
         uploaded.push(media);
       } catch (fileError) {
@@ -577,41 +705,53 @@ export async function downloadMedia(req, res, next) {
       return res.status(404).json({ success: false, error: 'Media not found.' });
     }
 
-    // Download original from R2 — original is NEVER modified
+    const isVideo = media.type === 'video';
+
+    // For images, prefer the archived original (full quality) when available.
+    // Falls back to the compressed gallery copy for legacy records.
+    const sourceKey = !isVideo && media.originalR2Key ? media.originalR2Key : media.r2Key;
+
     let fileBuffer;
     try {
-      fileBuffer = await downloadFromR2(media.r2Key);
+      fileBuffer = await downloadFromR2(sourceKey);
     } catch {
       return res.status(503).json({ success: false, error: 'Service temporarily unavailable. Please try again later.' });
     }
 
-    const isVideo = media.type === 'video';
-    // Images are stored as WebP but downloaded as JPEG — use jpg extension for images
-    const storedExt = media.r2Key.split('.').pop()?.toLowerCase() || (isVideo ? 'mp4' : 'jpg');
-    const downloadExt = isVideo ? storedExt : 'jpg';
-    const safeFilename = `${(media.eventId?.title || 'media').replace(/[^a-z0-9]/gi, '_')}_${id}.${downloadExt}`;
+    const sourceExt = sourceKey.split('.').pop()?.toLowerCase() || (isVideo ? 'mp4' : 'jpg');
+    const safeTitle = (media.eventId?.title || 'media').replace(/[^a-z0-9]/gi, '_');
 
-    const mimeMap = {
-      jpg: 'image/jpeg', jpeg: 'image/jpeg',
-      png: 'image/png', webp: 'image/webp',
-      gif: 'image/gif', mp4: 'video/mp4',
-      mov: 'video/quicktime', webm: 'video/webm',
-    };
-    // For images, always serve as JPEG regardless of stored format
-    const contentType = isVideo ? (mimeMap[storedExt] || 'video/mp4') : 'image/jpeg';
-
-    // Admin can skip watermark via ?watermark=false
+    // Admin can skip watermark via ?watermark=false — serve the source as-is.
     const skipWatermark = req.user.role === 'admin' && req.query.watermark === 'false';
 
     if (skipWatermark) {
-      // Convert WebP to JPEG even for no-watermark admin downloads
+      // Re-encode images to JPEG so the user always gets a universally
+      // compatible file (gallery is WebP, originals may be PNG/HEIC/etc.).
       let outputBuffer = fileBuffer;
-      if (!isVideo && storedExt === 'webp') {
-        outputBuffer = await sharp(fileBuffer).jpeg({ quality: 92 }).toBuffer();
+      let outputExt = sourceExt;
+      let outputContentType;
+
+      if (isVideo) {
+        outputExt = 'mp4';
+        outputContentType = 'video/mp4';
+      } else {
+        try {
+          outputBuffer = await sharp(fileBuffer)
+            .flatten({ background: { r: 255, g: 255, b: 255 } })
+            .jpeg({ quality: 95, mozjpeg: true, chromaSubsampling: '4:4:4' })
+            .toBuffer();
+        } catch (sharpErr) {
+          console.error('JPEG re-encode failed:', sharpErr.message);
+          return res.status(500).json({ success: false, error: 'Image processing failed.' });
+        }
+        outputExt = 'jpg';
+        outputContentType = 'image/jpeg';
       }
+
+      const filename = `${safeTitle}_${id}.${outputExt}`;
       res.set({
-        'Content-Type': contentType,
-        'Content-Disposition': `attachment; filename="${safeFilename}"`,
+        'Content-Type': outputContentType,
+        'Content-Disposition': `attachment; filename="${filename}"`,
         'Content-Length': outputBuffer.length,
       });
       return res.status(200).send(outputBuffer);
@@ -631,18 +771,20 @@ export async function downloadMedia(req, res, next) {
         console.error('FFmpeg watermark failed:', ffmpegErr.message);
         return res.status(500).json({ success: false, error: 'Video watermarking failed. Please try again.' });
       }
+      // applyVideoWatermark always outputs MP4 (libx264 + faststart).
+      const filename = `${safeTitle}_${id}.mp4`;
       res.set({
         'Content-Type': 'video/mp4',
-        'Content-Disposition': `attachment; filename="${safeFilename}"`,
+        'Content-Disposition': `attachment; filename="${filename}"`,
         'Content-Length': watermarkedVideo.length,
       });
       return res.status(200).send(watermarkedVideo);
     }
 
-    // Image watermark
-    let watermarkedBuffer;
+    // Image watermark — applyWatermark always returns JPEG.
+    let result;
     try {
-      watermarkedBuffer = await applyWatermark(fileBuffer, {
+      result = await applyWatermark(fileBuffer, {
         clubName:  'Antares',
         eventName: media.eventId?.title || 'Event',
         userName:  req.user.name || req.user.email || 'User',
@@ -654,12 +796,13 @@ export async function downloadMedia(req, res, next) {
       return res.status(500).json({ success: false, error: 'Image watermarking failed. Please try again.' });
     }
 
+    const filename = `${safeTitle}_${id}.${result.ext}`;
     res.set({
-      'Content-Type': contentType,
-      'Content-Disposition': `attachment; filename="${safeFilename}"`,
-      'Content-Length': watermarkedBuffer.length,
+      'Content-Type': result.contentType,
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': result.buffer.length,
     });
-    return res.status(200).send(watermarkedBuffer);
+    return res.status(200).send(result.buffer);
   } catch (error) {
     next(error);
   }
@@ -716,16 +859,14 @@ export async function toggleFavourite(req, res, next) {
       liked: favourited,
     });
 
-    // If favourited and actor is not the owner, create notification and emit to owner
+    // If favourited and actor is not the owner, create/merge notification and emit to owner
     if (favourited && actorId !== ownerId) {
       try {
-        const notif = await Notification.create({
+        const notif = await upsertAggregatedNotification({
           type: 'like',
           recipient: ownerId,
-          relatedUser: actorId,
+          actor: { _id: req.user._id, name: req.user.name },
           relatedMedia: id,
-          title: 'New like',
-          message: `${req.user.name} liked your photo`,
         });
         notifyUser(ownerId, notif, actorId);
         emitPhotoLikedToOwner(ownerId, { mediaId: id, count, by: { _id: actorId, name: req.user.name } }, actorId);
@@ -821,13 +962,11 @@ export async function addComment(req, res, next) {
     try {
       const ownerId = String(media.uploadedBy);
       if (ownerId !== actorId) {
-        const notif = await Notification.create({
+        const notif = await upsertAggregatedNotification({
           type: 'comment',
           recipient: ownerId,
-          relatedUser: req.user._id,
+          actor: { _id: req.user._id, name: req.user.name },
           relatedMedia: id,
-          title: 'New comment',
-          message: `${req.user.name} commented on your photo`,
         });
         notifyUser(ownerId, notif, actorId);
         emitNewCommentToUser(ownerId, commentPayload, actorId);
@@ -957,13 +1096,11 @@ export async function tagUsers(req, res, next) {
 
     for (const taggedId of uniqueUserIds) {
       try {
-        const notif = await Notification.create({
+        const notif = await upsertAggregatedNotification({
           type: 'tag',
           recipient: taggedId,
-          relatedUser: req.user._id,
+          actor: { _id: req.user._id, name: req.user.name },
           relatedMedia: id,
-          title: 'You were tagged',
-          message: `${req.user.name} tagged you in a photo`,
         });
 
         notifyUser(taggedId, notif, actorId);
@@ -1104,6 +1241,13 @@ export async function deleteMedia(req, res, next) {
     if (media.thumbnailR2Key) {
       deleteFromR2(media.thumbnailR2Key).catch((err) => {
         console.error(`R2 thumbnail delete failed for key ${media.thumbnailR2Key}:`, err.message);
+      });
+    }
+
+    // Delete archived original from R2 if one exists (fire-and-forget).
+    if (media.originalR2Key) {
+      deleteFromR2(media.originalR2Key).catch((err) => {
+        console.error(`R2 original delete failed for key ${media.originalR2Key}:`, err.message);
       });
     }
 
