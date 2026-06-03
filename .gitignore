@@ -39,5 +39,11 @@ Thumbs.db
 .idea/
 *.swp
 
+# Kiro IDE files
+.kiro/
+
 # Local scratch / experiments
-server/test-gemini.js
+# Ignore ad-hoc smoke scripts at the server root (e.g. test-gemini.js, test-cf-ai.js).
+# Note: this only matches files directly under server/ — Vitest test files live under
+# server/utils/, server/controllers/, etc. and are unaffected.
+server/test-*.js
