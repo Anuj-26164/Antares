@@ -1,56 +1,26 @@
 import sharp from 'sharp';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { readFileSync } from 'fs';
+import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ---------------------------------------------------------------------------
-// Bundled fonts — loaded once at module init and embedded into every watermark
-// SVG as base64 data URIs so that librsvg renders proper glyphs on Railway
-// (and any Linux env) even when no system font packages are installed.
+// Register bundled Roboto fonts with @napi-rs/canvas at module init.
+// @napi-rs/canvas handles ALL font rendering itself — no system fonts, no
+// librsvg, no fontconfig needed. Works on Railway out of the box.
 // ---------------------------------------------------------------------------
-function loadFont(filename) {
-  try {
-    const buf = readFileSync(join(__dirname, '..', 'assets', filename));
-    return buf.toString('base64');
-  } catch {
-    return null; // graceful — fall back to system fonts if file is missing
-  }
+const ASSETS_DIR = join(__dirname, '..', 'assets');
+
+let CANVAS_FONT_FAMILY = 'sans-serif'; // fallback if woff files are missing
+
+try {
+  GlobalFonts.registerFromPath(join(ASSETS_DIR, 'Roboto-Regular.woff'), 'Roboto');
+  GlobalFonts.registerFromPath(join(ASSETS_DIR, 'Roboto-Bold.woff'), 'Roboto');
+  CANVAS_FONT_FAMILY = 'Roboto';
+} catch (e) {
+  console.warn('[watermark] Could not load bundled fonts, falling back to system fonts:', e.message);
 }
-
-const FONT_REGULAR_B64 = loadFont('Roboto-Regular.woff');
-const FONT_BOLD_B64    = loadFont('Roboto-Bold.woff');
-
-/**
- * Return an SVG <defs> block that declares @font-face rules using the bundled
- * woff files embedded as base64 data URIs. If the font files are not present
- * (e.g. local dev without assets/) this returns an empty string so we still
- * fall back to whatever system fonts are available.
- */
-function fontFaceDefs() {
-  if (!FONT_REGULAR_B64 && !FONT_BOLD_B64) return '';
-  const rules = [];
-  if (FONT_REGULAR_B64) {
-    rules.push(
-      `@font-face { font-family: 'BundledFont'; font-weight: normal; ` +
-      `src: url('data:font/woff;base64,${FONT_REGULAR_B64}') format('woff'); }`,
-    );
-  }
-  if (FONT_BOLD_B64) {
-    rules.push(
-      `@font-face { font-family: 'BundledFont'; font-weight: bold; ` +
-      `src: url('data:font/woff;base64,${FONT_BOLD_B64}') format('woff'); }`,
-    );
-  }
-  return `<defs><style>${rules.join(' ')}</style></defs>`;
-}
-
-// The font-family value to use inside SVG font-family attributes.
-// When bundled fonts are available, 'BundledFont' resolves to our woff files.
-const SVG_FONT_FAMILY = FONT_REGULAR_B64
-  ? 'BundledFont, Arial, Helvetica, Liberation Sans, sans-serif'
-  : 'Arial, Helvetica, Liberation Sans, sans-serif';
 
 const MAX_DIMENSION = 2048;
 const AVATAR_MAX_DIMENSION = 512;
@@ -109,101 +79,70 @@ function escapeXml(str) {
 }
 
 /**
- * Build a repeated diagonal watermark SVG overlay.
- *
- * @param {number} width  - Image width in px
- * @param {number} height - Image height in px
- * @param {object} ctx    - Watermark context
- * @param {string} ctx.clubName   - e.g. "Antares"
- * @param {string} ctx.eventName  - e.g. "Hackathon 2025"
- * @param {string} ctx.userName   - e.g. "Anuj Sacer"
- * @param {string} ctx.userRole   - e.g. "club_member"
- * @param {string} ctx.timestamp  - e.g. "2025-05-28"
- * @returns {Buffer} SVG buffer
- */
-/**
- * Build a centered diagonal watermark overlay as an SVG buffer, composited
- * via Sharp's librsvg pipeline. This approach requires NO system fonts —
- * librsvg is bundled with the Sharp npm package and works on Railway (and any
- * other Linux environment) without extra apt packages.
- *
- * Previously this used Sharp's Pango text renderer which silently falls back
- * to tofu (block squares) on Railway because the container has no installed
- * font packages. SVG text with generic font-family names is handled entirely
- * by librsvg's built-in font stack.
+ * Build a centered diagonal watermark PNG overlay using @napi-rs/canvas.
+ * Canvas renders text with the registered Roboto fonts directly — no system
+ * fonts, no librsvg, no fontconfig needed. Works on Railway out of the box.
  *
  * @param {number} width  - Image width in px
  * @param {number} height - Image height in px
  * @param {object} ctx
- * @returns {Promise<Buffer>} PNG buffer ready for compositing
+ * @returns {Promise<Buffer>} PNG buffer ready for Sharp compositing
  */
 async function buildWatermarkPng(width, height, ctx) {
-  const opacity = getOpacity(ctx.userRole);
-  const fontSize = Math.max(18, Math.round(Math.min(width, height) * 0.032));
+  const opacity   = getOpacity(ctx.userRole);
+  const fontSize  = Math.max(18, Math.round(Math.min(width, height) * 0.032));
   const fontSize2 = Math.round(fontSize * 0.82);
   const timestamp = ctx.timestamp || new Date().toISOString().split('T')[0];
 
-  const line1 = escapeXml(`${ctx.clubName} \u00b7 ${ctx.eventName}`);
-  const line2 = escapeXml(`${ctx.userName} \u00b7 ${timestamp}`);
+  const line1 = `${ctx.clubName} \u00b7 ${ctx.eventName}`;
+  const line2 = `${ctx.userName} \u00b7 ${timestamp}`;
 
-  // Estimate text block dimensions (SVG units ≈ px for our font sizes).
-  // We over-estimate the width so the text never gets clipped.
-  const charW1 = fontSize * 0.6;
-  const charW2 = fontSize2 * 0.6;
-  const maxChars = Math.max(line1.length, line2.length);
-  const estW = Math.round(Math.max(charW1, charW2) * maxChars * 1.1);
+  // --- Measure and draw text block on a canvas ---
+  // Use an oversized probe canvas to measure actual text widths.
+  const probe = createCanvas(4000, 200);
+  const pc    = probe.getContext('2d');
+
+  pc.font = `bold ${fontSize}px ${CANVAS_FONT_FAMILY}`;
+  const w1 = pc.measureText(line1).width;
+
+  pc.font = `${fontSize2}px ${CANVAS_FONT_FAMILY}`;
+  const w2 = pc.measureText(line2).width;
+
   const lineGap = Math.round(fontSize * 0.4);
-  const estH = fontSize + lineGap + fontSize2 + Math.round(fontSize * 0.3);
+  const pad     = Math.round(fontSize * 0.5); // horizontal padding
+  const blockW  = Math.round(Math.max(w1, w2)) + pad * 2;
+  const blockH  = fontSize + lineGap + fontSize2 + Math.round(fontSize * 0.4);
 
-  // Build the text block as SVG with @font-face embedding our bundled woff
-  // fonts as base64 data URIs. This makes rendering self-contained so
-  // librsvg doesn't need any system font packages (critical on Railway).
-  const svgText = Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${estW}" height="${estH}">
-      ${fontFaceDefs()}
-      <text
-        x="${estW / 2}" y="${fontSize}"
-        font-family="${SVG_FONT_FAMILY}"
-        font-size="${fontSize}"
-        font-weight="bold"
-        fill="white"
-        fill-opacity="${opacity}"
-        text-anchor="middle"
-        dominant-baseline="auto"
-      >${line1}</text>
-      <text
-        x="${estW / 2}" y="${fontSize + lineGap + fontSize2}"
-        font-family="${SVG_FONT_FAMILY}"
-        font-size="${fontSize2}"
-        font-weight="normal"
-        fill="white"
-        fill-opacity="${opacity * 0.85}"
-        text-anchor="middle"
-        dominant-baseline="auto"
-      >${line2}</text>
-    </svg>`
-  );
+  // Draw both text lines on a transparent canvas block.
+  const textCanvas = createCanvas(blockW, blockH);
+  const tc         = textCanvas.getContext('2d');
 
-  // Rasterise the SVG text block to a PNG via Sharp.
-  const textBlockPng = await sharp(svgText)
-    .png()
-    .toBuffer();
+  // Line 1 — bold
+  tc.globalAlpha = opacity;
+  tc.fillStyle   = 'white';
+  tc.font        = `bold ${fontSize}px ${CANVAS_FONT_FAMILY}`;
+  tc.textAlign   = 'center';
+  tc.textBaseline = 'top';
+  tc.fillText(line1, blockW / 2, 0);
 
-  const textMeta = await sharp(textBlockPng).metadata();
-  const bw = textMeta.width  || estW;
-  const bh = textMeta.height || estH;
+  // Line 2 — regular, slightly smaller
+  tc.globalAlpha = opacity * 0.85;
+  tc.font        = `${fontSize2}px ${CANVAS_FONT_FAMILY}`;
+  tc.fillText(line2, blockW / 2, fontSize + lineGap);
 
-  // Rotate the text block -25° on a transparent canvas.
+  // Export as PNG buffer
+  const textBlockPng = textCanvas.toBuffer('image/png');
+
+  // --- Rotate -25° via Sharp, then centre on a full-image overlay ---
   const rotated = await sharp(textBlockPng)
     .rotate(-25, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
 
   const rotMeta = await sharp(rotated).metadata();
-  const rw = rotMeta.width  || bw;
-  const rh = rotMeta.height || bh;
+  const rw = rotMeta.width  || blockW;
+  const rh = rotMeta.height || blockH;
 
-  // Place the rotated block centred on a full-image transparent canvas.
   const overlay = await sharp({
     create: {
       width,
@@ -214,8 +153,8 @@ async function buildWatermarkPng(width, height, ctx) {
   })
     .composite([{
       input: rotated,
-      left: Math.max(0, Math.round((width  - rw) / 2)),
-      top:  Math.max(0, Math.round((height - rh) / 2)),
+      left:  Math.max(0, Math.round((width  - rw) / 2)),
+      top:   Math.max(0, Math.round((height - rh) / 2)),
       blend: 'over',
     }])
     .png()
@@ -223,6 +162,7 @@ async function buildWatermarkPng(width, height, ctx) {
 
   return overlay;
 }
+
 
 /**
  * Apply a dynamic centered watermark to an image and return JPEG bytes.
