@@ -54,17 +54,21 @@ export function verifyRefreshToken(token) {
  * @param {string} refreshToken - The JWT refresh token.
  */
 export function setAuthCookies(res, accessToken, refreshToken) {
+  const isProduction = process.env.NODE_ENV === 'production';
+
   res.cookie('accessToken', accessToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isProduction,
+    // 'none' required for cross-origin requests (frontend/backend on different domains).
+    // Falls back to 'strict' in local dev where both run on localhost.
+    sameSite: isProduction ? 'none' : 'strict',
     maxAge: 24 * 60 * 60 * 1000, // 1 day
   });
 
   res.cookie('refreshToken', refreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'strict',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   });
 }
@@ -74,15 +78,17 @@ export function setAuthCookies(res, accessToken, refreshToken) {
  * @param {import('express').Response} res - Express response object.
  */
 export function clearAuthCookies(res) {
+  const isProduction = process.env.NODE_ENV === 'production';
+
   res.clearCookie('accessToken', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'strict',
   });
 
   res.clearCookie('refreshToken', {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'strict',
   });
 }
