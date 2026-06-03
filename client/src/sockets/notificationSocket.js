@@ -4,12 +4,14 @@ import useNotificationStore from '../store/notificationStore.js';
 /**
  * Subscribe to personal notification socket events.
  *
- * `notification` — full notification doc emitted to the recipient's user room
- *   (covers like, comment, media_upload, user_registration)
+ * `notification` — full notification doc emitted to the recipient's user room.
+ *   Covers all persisted types: like, comment, media_upload, user_registration,
+ *   and tag. This is the single source of truth for the bell + list.
  *
- * `user-tagged` — raw tag payload { mediaId, eventId, by } emitted to the
- *   tagged user's room. We normalise it into a notification shape here so
- *   the store always receives a consistent object.
+ * Note: the server also emits `user-tagged` with `{ mediaId, eventId, by }`
+ * for live UI hooks (e.g. media-room overlays). It is intentionally NOT
+ * handled here — doing so would double-count tag notifications because the
+ * persisted `notification` event already covers tags.
  *
  * `photo-liked` and `new-comment` are event-room broadcasts for live UI
  * updates — they must NOT be routed here (would increment badge for everyone).
@@ -22,26 +24,7 @@ export function subscribeToNotifications() {
     useNotificationStore.getState().addNotification(payload);
   });
 
-  // Tag payload — normalise into notification shape before storing
-  const unsubUserTagged = on('user-tagged', (payload) => {
-    const n = {
-      // No _id from server — store will generate a tmp id via normalise()
-      type:        'tag',
-      title:       'You were tagged',
-      message:     payload?.by?.name
-        ? `${payload.by.name} tagged you in a photo`
-        : 'You were tagged in a photo',
-      isRead:      false,
-      createdAt:   new Date().toISOString(),
-      relatedUser: payload?.by ?? null,
-      relatedMedia:payload?.mediaId ? { _id: payload.mediaId, eventId: payload?.eventId || null } : null,
-      relatedEvent:payload?.eventId ? { _id: payload.eventId } : null,
-    };
-    useNotificationStore.getState().addNotification(n);
-  });
-
   return () => {
     unsubNotification();
-    unsubUserTagged();
   };
 }
