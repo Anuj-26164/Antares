@@ -1,6 +1,11 @@
 /**
- * Shared notification rendering helpers used by AppNavbar and AdminTopBar.
+ * Shared notification rendering helpers used by AppNavbar.
  */
+
+import { relativeTime } from '../../utils/formatters.js';
+
+// Re-export so existing imports of `relativeTime` from this module keep working.
+export { relativeTime };
 
 /**
  * Determine the navigation path for a notification based on its type
@@ -62,18 +67,6 @@ export function NotifIcon({ type }) {
       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
     </svg>
   );
-}
-
-/** Format relative time */
-export function relativeTime(dateStr) {
-  if (!dateStr) return '';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
 }
 
 /** Single notification row */
