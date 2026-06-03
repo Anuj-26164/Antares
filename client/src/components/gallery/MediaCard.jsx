@@ -87,6 +87,20 @@ export default function MediaCard({ media, onFavourite, onClick }) {
               {commentCount}
             </span>
           </div>
+
+          {/* Smart-tag chips — top-left, only when AI tags exist */}
+          {Array.isArray(media.tags) && media.tags.length > 0 && (
+            <div className="absolute top-2 left-2 flex flex-wrap gap-1 max-w-[80%] pointer-events-none">
+              {media.tags.slice(0, 3).map((tag) => (
+                <span
+                  key={tag}
+                  className="px-2 py-0.5 rounded-full bg-black/55 backdrop-blur-sm text-white text-[10px] font-medium tracking-wide capitalize"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </motion.div>
     </BorderGlow>
