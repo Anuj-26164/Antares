@@ -58,31 +58,30 @@ export default function App() {
 
   // Handle Google OAuth redirect — ?token= param is passed back from the backend.
   // Exchange it for proper httpOnly cookies via POST /auth/session, then clean the URL.
+  // If no token present, fall through to normal initAuth.
   useEffect(() => {
-    const params = new URLSearchParams(location.search);
+    const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
-    if (!token) return;
 
-    // Remove token from URL immediately so it's not visible or bookmarkable
-    params.delete('token');
-    const cleanSearch = params.toString();
-    navigate(location.pathname + (cleanSearch ? `?${cleanSearch}` : ''), { replace: true });
+    if (token) {
+      // Remove token from URL immediately so it's not visible or bookmarkable
+      params.delete('token');
+      const cleanSearch = params.toString();
+      navigate(location.pathname + (cleanSearch ? `?${cleanSearch}` : ''), { replace: true });
 
-    api.post('/auth/session', { token })
-      .then((res) => {
-        const user = res.data.data;
-        useAuthStore.setState({ user, isAuthenticated: true, hydrated: true });
-        try { localStorage.setItem('antares_user', JSON.stringify(user)); } catch { /* ignore */ }
-      })
-      .catch(() => {
-        // Token invalid — fall through to normal initAuth
-        initAuth();
-      });
+      api.post('/auth/session', { token })
+        .then((res) => {
+          const user = res.data.data;
+          useAuthStore.setState({ user, isAuthenticated: true, hydrated: true });
+          try { localStorage.setItem('antares_user', JSON.stringify(user)); } catch { /* ignore */ }
+        })
+        .catch(() => {
+          initAuth();
+        });
+    } else {
+      initAuth();
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    initAuth();
-  }, [initAuth]);
 
   // Socket lifecycle — connect when authenticated, disconnect on logout/cleanup
   useEffect(() => {

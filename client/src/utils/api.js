@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const BASE_URL = `${import.meta.env.VITE_API_URL || ''}/api`;
+
 const api = axios.create({
-  baseURL: `${import.meta.env.VITE_API_URL || ''}/api`,
+  baseURL: BASE_URL,
   withCredentials: true,
 });
 
@@ -20,7 +22,7 @@ function processQueue(error) {
 }
 
 // Endpoints that should NOT trigger a token refresh on 401
-const SKIP_REFRESH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/refresh', '/users/me'];
+const SKIP_REFRESH_ENDPOINTS = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/session', '/users/me'];
 
 api.interceptors.response.use(
   (response) => response,
@@ -46,7 +48,8 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        await axios.post('/api/auth/refresh', null, { withCredentials: true });
+        // Use absolute backend URL — not a relative path — to avoid hitting the frontend
+        await axios.post(`${BASE_URL}/auth/refresh`, null, { withCredentials: true });
         processQueue(null);
         return api(originalRequest);
       } catch (refreshError) {
