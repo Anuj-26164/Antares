@@ -338,7 +338,7 @@ export default function MediaManagementPanel() {
                 {/* Thumbnail */}
                 <div className="aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-graphite/30 relative">
                   <img
-                    src={item.thumbnailUrl || (isVideo ? `/api/media/${item._id}/thumbnail` : item.url)}
+                    src={item.thumbnailAccessUrl || (isVideo ? `${import.meta.env.VITE_API_URL || ''}/api/media/${item._id}/thumbnail` : item.accessUrl || `${import.meta.env.VITE_API_URL || ''}/api/media/${item._id}/serve`)}
                     alt={displayName}
                     className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
                     loading="lazy"
@@ -435,7 +435,7 @@ export default function MediaManagementPanel() {
                     </td>
                     <td className="px-4 py-3">
                       <img
-                        src={item.thumbnailUrl || (isVideo ? `/api/media/${item._id}/thumbnail` : item.url)}
+                        src={item.thumbnailAccessUrl || (isVideo ? `${import.meta.env.VITE_API_URL || ''}/api/media/${item._id}/thumbnail` : item.accessUrl || `${import.meta.env.VITE_API_URL || ''}/api/media/${item._id}/serve`)}
                         alt=""
                         className="w-12 h-9 rounded-[8px] object-cover"
                         loading="lazy"

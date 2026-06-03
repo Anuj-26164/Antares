@@ -563,14 +563,22 @@ export async function listMedia(req, res, next) {
         const command = new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: obj.r2Key });
         accessUrl = await getSignedUrl(r2Client, command, { expiresIn: 900 });
       } else {
-        // Public media: return absolute URL so the Netlify frontend can reach
-        // the Railway backend without a proxy. Falls back to R2 public URL
-        // when set, otherwise uses the backend serve endpoint.
-        accessUrl = obj.url || `${config.SERVER_URL}/api/media/${obj._id}/serve`;
+        // Public media: always route through the backend /serve endpoint.
+        // Direct R2 public URLs (r2.dev) don't include CORS headers, so the
+        // browser would block them when loaded from the Netlify frontend.
+        accessUrl = `${config.SERVER_URL}/api/media/${obj._id}/serve`;
       }
+
+      // Same logic for thumbnails: use the backend /thumbnail endpoint so CORS
+      // headers are present. Never send raw R2 URLs to the browser.
+      const thumbnailAccessUrl = obj.type === 'video'
+        ? `${config.SERVER_URL}/api/media/${obj._id}/thumbnail`
+        : accessUrl;
+
       return {
         ...obj,
         accessUrl,
+        thumbnailAccessUrl,
         isFavourited: userId
           ? (obj.favouritedBy || []).some((id) => id.toString() === userId)
           : false,
@@ -638,14 +646,26 @@ export async function getMedia(req, res, next) {
 
       return res.status(200).json({
         success: true,
-        data: { ...media.toObject(), accessUrl: signedUrl },
+        data: {
+          ...media.toObject(),
+          accessUrl: signedUrl,
+          thumbnailAccessUrl: media.type === 'video'
+            ? `${config.SERVER_URL}/api/media/${media._id}/thumbnail`
+            : signedUrl,
+        },
       });
     }
 
-    // Public media — return with public URL
+    // Public media — route through backend serve endpoint to avoid R2 CORS issues
     return res.status(200).json({
       success: true,
-      data: { ...media.toObject(), accessUrl: media.url || `${config.SERVER_URL}/api/media/${media._id}/serve` },
+      data: {
+        ...media.toObject(),
+        accessUrl: `${config.SERVER_URL}/api/media/${media._id}/serve`,
+        thumbnailAccessUrl: media.type === 'video'
+          ? `${config.SERVER_URL}/api/media/${media._id}/thumbnail`
+          : `${config.SERVER_URL}/api/media/${media._id}/serve`,
+      },
     });
   } catch (error) {
     next(error);
