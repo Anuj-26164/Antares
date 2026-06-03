@@ -7,7 +7,6 @@
 import 'dotenv/config';
 
 const REQUIRED_ENV_VARS = [
-  'PORT',
   'MONGO_URI',
   'JWT_SECRET',
   'JWT_REFRESH_SECRET',
@@ -41,7 +40,7 @@ export function validateEnv() {
   }
 
   return Object.freeze({
-    PORT: process.env.PORT,
+    PORT: process.env.PORT || 5000,
     MONGO_URI: process.env.MONGO_URI,
     JWT_SECRET: process.env.JWT_SECRET,
     JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,
