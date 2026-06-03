@@ -362,11 +362,15 @@ export async function exchangeToken(req, res) {
  * @route GET /api/auth/google/callback
  */
 export async function googleCallback(req, res) {
+  // Normalize CLIENT_URL — strip any trailing slash to prevent double-slash
+  // redirect paths (e.g. "https://example.com/" + "/gallery" → "//gallery").
+  const clientUrl = config.CLIENT_URL.replace(/\/+$/, '');
+
   try {
     // Passport attaches user on success
     if (!req.user) {
       return res.redirect(
-        `${config.CLIENT_URL}/login?error=google_auth_failed`
+        `${clientUrl}/login?error=google_auth_failed`
       );
     }
 
@@ -375,7 +379,7 @@ export async function googleCallback(req, res) {
     // Check if user is blocked
     if (user.isBlocked) {
       return res.redirect(
-        `${config.CLIENT_URL}/login?error=account_blocked`
+        `${clientUrl}/login?error=account_blocked`
       );
     }
 
@@ -394,10 +398,10 @@ export async function googleCallback(req, res) {
     // Pass the access token as a query param so the frontend can bootstrap
     // the session even though the cookie was set on a different domain.
     const redirectPath = user.role === 'admin' ? '/admin' : '/gallery';
-    return res.redirect(`${config.CLIENT_URL}${redirectPath}?token=${accessToken}`);
+    return res.redirect(`${clientUrl}${redirectPath}?token=${accessToken}`);
   } catch (error) {
     return res.redirect(
-      `${config.CLIENT_URL}/login?error=google_auth_failed`
+      `${clientUrl}/login?error=google_auth_failed`
     );
   }
 }
