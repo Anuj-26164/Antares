@@ -33,10 +33,22 @@ configurePassport(passport);
 app.use(passport.initialize());
 
 // CORS
-app.use(cors({
-  origin: config.CLIENT_URL,
-  credentials: true,
-}));
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://antaresevents.netlify.app",
+];
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  })
+);
 
 // Cookie parser
 app.use(cookieParser());
