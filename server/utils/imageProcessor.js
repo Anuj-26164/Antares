@@ -114,28 +114,34 @@ function buildWatermarkSvg(width, height, ctx) {
 }
 
 /**
- * Apply a dynamic diagonal repeated watermark to an image.
- * Preserves the original image format (does NOT convert to WebP).
+ * Apply a dynamic centered watermark to an image and return JPEG bytes.
+ * The download is always served as a JPEG (.jpg) regardless of the source
+ * format so users get a universally compatible file. Quality is high
+ * enough that the additional encode is visually transparent for typical
+ * photographs.
  *
  * @param {Buffer} inputBuffer - Raw image buffer (any format Sharp supports)
  * @param {object} ctx
- * @returns {Promise<Buffer>} Watermarked image buffer in original format
+ * @returns {Promise<{ buffer: Buffer, contentType: string, ext: string }>}
  */
 export async function applyWatermark(inputBuffer, ctx) {
   const image = sharp(inputBuffer);
   const metadata = await image.metadata();
   const width  = metadata.width  || 1200;
   const height = metadata.height || 800;
-  const format = metadata.format || 'jpeg'; // preserve original format
 
   const timestamp = ctx.timestamp || new Date().toISOString().split('T')[0];
   const svgBuffer = buildWatermarkSvg(width, height, { ...ctx, timestamp });
 
-  const pipeline = image.composite([{ input: svgBuffer, blend: 'over' }]);
+  const buffer = await image
+    // Flatten any alpha against white so PNG/WebP-with-transparency don't go
+    // black when re-encoded as JPEG.
+    .flatten({ background: { r: 255, g: 255, b: 255 } })
+    .composite([{ input: svgBuffer, blend: 'over' }])
+    .jpeg({ quality: 95, mozjpeg: true, chromaSubsampling: '4:4:4' })
+    .toBuffer();
 
-  // Always output JPEG for downloads — WebP is the storage format but
-  // users expect JPEG when downloading photos.
-  return pipeline.jpeg({ quality: 88 }).toBuffer();
+  return { buffer, contentType: 'image/jpeg', ext: 'jpg' };
 }
 
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
