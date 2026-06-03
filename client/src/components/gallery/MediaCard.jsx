@@ -30,10 +30,12 @@ export default function MediaCard({ media, onFavourite, onClick }) {
         : 0;
 
   const type = media.type || "photo";
-  const videoThumbSrc =
-    media.thumbnailUrl || `/api/media/${media._id}/thumbnail`;
+  const apiBase = import.meta.env.VITE_API_URL || '';
 
-  const imageSrc = media.accessUrl || `/api/media/${media._id}/serve`;
+  const videoThumbSrc =
+    media.thumbnailUrl || `${apiBase}/api/media/${media._id}/thumbnail`;
+
+  const imageSrc = media.accessUrl || `${apiBase}/api/media/${media._id}/serve`;
 
   return (
     <BorderGlow

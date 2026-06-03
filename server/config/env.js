@@ -19,6 +19,8 @@ const REQUIRED_ENV_VARS = [
   'R2_SECRET_ACCESS_KEY',
   'R2_BUCKET_NAME',
   'R2_PUBLIC_URL',
+  // SERVER_URL is optional — defaults to http://localhost:<PORT> for local dev.
+  // Set it to your Railway deployment URL in production.
 ];
 
 /**
@@ -39,8 +41,14 @@ export function validateEnv() {
     process.exit(1);
   }
 
+  const port = process.env.PORT || 5000;
+  // SERVER_URL must be set to the Railway public URL in production
+  // (e.g. https://your-app.up.railway.app). Falls back to localhost for dev.
+  const serverUrl = (process.env.SERVER_URL || `http://localhost:${port}`).replace(/\/$/, '');
+
   return Object.freeze({
-    PORT: process.env.PORT || 5000,
+    PORT: port,
+    SERVER_URL: serverUrl,
     MONGO_URI: process.env.MONGO_URI,
     JWT_SECRET: process.env.JWT_SECRET,
     JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET,

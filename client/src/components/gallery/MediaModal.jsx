@@ -246,7 +246,7 @@ export default function MediaModal({ media, onClose, onFavourite }) {
             {media.type === 'video' ? (
               <div className="w-full h-full min-h-[300px] max-h-[70vh]">
                 <VideoPlayer
-                  src={media.accessUrl || `/api/media/${media._id}/serve`}
+                  src={media.accessUrl || `${import.meta.env.VITE_API_URL || ''}/api/media/${media._id}/serve`}
                   poster={media.thumbnailUrl || undefined}
                   onDownload={() => handleDownload(true)}
                   onFavourite={handleLike}
@@ -257,7 +257,7 @@ export default function MediaModal({ media, onClose, onFavourite }) {
               </div>
             ) : (
               <img
-                src={media.accessUrl || `/api/media/${media._id}/serve`}
+                src={media.accessUrl || `${import.meta.env.VITE_API_URL || ''}/api/media/${media._id}/serve`}
                 alt={media.title || 'Media'}
                 className="w-full h-full object-contain max-h-[70vh]"
                 onContextMenu={(e) => e.preventDefault()}
