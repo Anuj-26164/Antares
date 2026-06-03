@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 const navItems = [
@@ -60,15 +60,6 @@ const navItems = [
     ),
   },
   {
-    label: 'AI Insights',
-    path: '/admin/ai-insights',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-      </svg>
-    ),
-  },
-  {
     label: 'Settings',
     path: '/admin/settings',
     icon: (
@@ -81,7 +72,6 @@ const navItems = [
 ];
 
 export default function AdminSidebar() {
-  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth < 768;
@@ -114,10 +104,10 @@ export default function AdminSidebar() {
   if (isMobile) {
     return (
       <>
-        {/* Mobile toggle button */}
+        {/* Mobile toggle button — positioned below the global PillNav */}
         <button
           onClick={() => setMobileOpen(true)}
-          className="fixed top-4 left-4 z-50 w-10 h-10 rounded-full bg-snow dark:bg-ink flex items-center justify-center text-ink dark:text-snow md:hidden"
+          className="fixed top-[100px] left-4 z-50 w-10 h-10 rounded-full bg-snow dark:bg-ink flex items-center justify-center text-ink dark:text-snow md:hidden"
           aria-label="Open sidebar"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -140,15 +130,10 @@ export default function AdminSidebar() {
           initial={{ x: -240 }}
           animate={{ x: mobileOpen ? 0 : -240 }}
           transition={{ duration: 0.25, ease: 'easeInOut' }}
-          className="fixed top-0 left-0 h-screen w-[240px] bg-snow dark:bg-ink border-r border-fog dark:border-graphite z-40 flex flex-col"
+          className="fixed top-[86px] left-0 w-[240px] bg-snow dark:bg-ink border-r border-fog dark:border-graphite z-40 flex flex-col"
+          style={{ height: 'calc(100vh - 86px)' }}
         >
-          <div className="h-16 flex items-center px-5">
-            <Link to="/" className="flex items-center gap-2 no-underline">
-              <img src="/antareslogo.svg" alt="Antares" className="h-6 w-6 shrink-0" />
-              <span className="text-ink dark:text-snow font-bold text-[18px]">Antares</span>
-            </Link>
-          </div>
-          <nav className="flex-1 px-3 py-2 flex flex-col gap-1">
+          <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
             {navItems.map((item) => (
               <NavLink
                 key={item.path}
@@ -176,23 +161,9 @@ export default function AdminSidebar() {
     <motion.aside
       animate={{ width: sidebarWidth }}
       transition={{ duration: 0.25, ease: 'easeInOut' }}
-      className="h-screen bg-snow dark:bg-ink border-r border-fog dark:border-graphite flex flex-col shrink-0 overflow-hidden"
+      className="bg-snow dark:bg-ink border-r border-fog dark:border-graphite flex flex-col shrink-0 overflow-hidden"
     >
-      <div className="h-16 flex items-center justify-center px-5">
-        {!collapsed && (
-          <Link to="/" className="flex items-center gap-2 whitespace-nowrap no-underline">
-            <img src="/antareslogo.svg" alt="Antares" className="h-6 w-6 shrink-0" />
-            <span className="text-ink dark:text-snow font-bold text-[18px]">Antares</span>
-          </Link>
-        )}
-        {collapsed && (
-          <Link to="/" className="no-underline">
-            <img src="/antareslogo.svg" alt="Antares" className="h-6 w-6 shrink-0" />
-          </Link>
-        )}
-      </div>
-
-      <nav className="flex-1 px-2 py-2 flex flex-col gap-1">
+      <nav className="flex-1 px-2 py-4 flex flex-col gap-1">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
