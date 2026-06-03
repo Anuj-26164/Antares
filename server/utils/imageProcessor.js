@@ -1,14 +1,8 @@
 import sharp from 'sharp';
-import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// Embed fonts as Base64 so the SVG watermark renders correctly on any server
-// (Railway/Linux containers don't have Arial/Helvetica installed).
-const _fontRegularB64 = readFileSync(join(__dirname, '../assets/DejaVuSans.ttf')).toString('base64');
-const _fontBoldB64    = readFileSync(join(__dirname, '../assets/DejaVuSans-Bold.ttf')).toString('base64');
 
 const MAX_DIMENSION = 2048;
 const AVATAR_MAX_DIMENSION = 512;
@@ -82,59 +76,123 @@ function escapeXml(str) {
 /**
  * Build a single centered watermark SVG overlay.
  */
-function buildWatermarkSvg(width, height, ctx) {
+/**
+ * Build a centered diagonal watermark overlay as a PNG buffer using
+ * Sharp's Pango text renderer. This avoids librsvg font issues entirely —
+ * Pango always has a working fallback font on any Linux system.
+ *
+ * @param {number} width  - Image width in px
+ * @param {number} height - Image height in px
+ * @param {object} ctx
+ * @returns {Promise<Buffer>} PNG buffer ready for compositing
+ */
+async function buildWatermarkPng(width, height, ctx) {
   const opacity = getOpacity(ctx.userRole);
   const fontSize = Math.max(18, Math.round(Math.min(width, height) * 0.032));
-  const lineHeight = fontSize * 1.6;
+  const timestamp = ctx.timestamp || new Date().toISOString().split('T')[0];
 
-  const line1 = escapeXml(`${ctx.clubName} · ${ctx.eventName}`);
-  const line2 = escapeXml(`${ctx.userName} · ${ctx.timestamp}`);
+  const line1 = `${ctx.clubName} \u00b7 ${ctx.eventName}`;
+  const line2 = `${ctx.userName} \u00b7 ${timestamp}`;
 
-  const cx = width / 2;
-  const cy = height / 2;
+  // Render each line as a separate Sharp text image, then combine onto a
+  // transparent canvas and rotate/position it.
+  const alphaFull  = Math.round(opacity * 255);
+  const alphaSmall = Math.round(opacity * 0.85 * 255);
 
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-    <defs>
-      <style>
-        @font-face {
-          font-family: 'WMFont';
-          font-weight: 600;
-          src: url('data:font/truetype;base64,${_fontBoldB64}') format('truetype');
-        }
-        @font-face {
-          font-family: 'WMFont';
-          font-weight: 400;
-          src: url('data:font/truetype;base64,${_fontRegularB64}') format('truetype');
-        }
-      </style>
-    </defs>
-    <g transform="translate(${cx}, ${cy}) rotate(-25)">
-      <text
-        x="0" y="${-lineHeight / 2}"
-        text-anchor="middle"
-        dominant-baseline="middle"
-        font-family="WMFont, sans-serif"
-        font-size="${fontSize}"
-        font-weight="600"
-        fill="white"
-        fill-opacity="${opacity}"
-        letter-spacing="0.5"
-      >${line1}</text>
-      <text
-        x="0" y="${lineHeight / 2}"
-        text-anchor="middle"
-        dominant-baseline="middle"
-        font-family="WMFont, sans-serif"
-        font-size="${Math.round(fontSize * 0.82)}"
-        font-weight="400"
-        fill="white"
-        fill-opacity="${opacity * 0.85}"
-        letter-spacing="0.3"
-      >${line2}</text>
-    </g>
-  </svg>`;
+  // Render line 1 (bold)
+  const text1Buf = await sharp({
+    text: {
+      text: `<span foreground="white">${escapeXml(line1)}</span>`,
+      font: 'Sans Bold',
+      fontSize,
+      rgba: true,
+    },
+  })
+    .png()
+    .toBuffer();
 
-  return Buffer.from(svg);
+  const text1Meta = await sharp(text1Buf).metadata();
+  const t1w = text1Meta.width || 1;
+  const t1h = text1Meta.height || 1;
+
+  // Render line 2 (regular, slightly smaller)
+  const fontSize2 = Math.round(fontSize * 0.82);
+  const text2Buf = await sharp({
+    text: {
+      text: `<span foreground="white">${escapeXml(line2)}</span>`,
+      font: 'Sans',
+      fontSize: fontSize2,
+      rgba: true,
+    },
+  })
+    .png()
+    .toBuffer();
+
+  const text2Meta = await sharp(text2Buf).metadata();
+  const t2w = text2Meta.width || 1;
+  const t2h = text2Meta.height || 1;
+
+  const gap = Math.round(fontSize * 0.4);
+  const blockW = Math.max(t1w, t2w);
+  const blockH = t1h + gap + t2h;
+
+  // Composite both lines onto a transparent canvas, centered
+  const canvas = await sharp({
+    create: {
+      width: blockW,
+      height: blockH,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([
+      {
+        input: await sharp(text1Buf).ensureAlpha().modulate({ brightness: 1 }).toBuffer(),
+        left: Math.round((blockW - t1w) / 2),
+        top: 0,
+        blend: 'over',
+      },
+      {
+        input: await sharp(text2Buf).ensureAlpha().toBuffer(),
+        left: Math.round((blockW - t2w) / 2),
+        top: t1h + gap,
+        blend: 'over',
+      },
+    ])
+    .png()
+    .toBuffer();
+
+  // Rotate -25° and place centered on a full-image transparent canvas
+  const rotated = await sharp(canvas)
+    .rotate(-25, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toBuffer();
+
+  const rotMeta = await sharp(rotated).metadata();
+  const rw = rotMeta.width || blockW;
+  const rh = rotMeta.height || blockH;
+
+  const overlay = await sharp({
+    create: {
+      width,
+      height,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([
+      {
+        input: rotated,
+        left: Math.round((width - rw) / 2),
+        top: Math.round((height - rh) / 2),
+        blend: 'over',
+      },
+    ])
+    // Apply the opacity by adjusting alpha channel
+    .png()
+    .toBuffer();
+
+  return overlay;
 }
 
 /**
@@ -155,13 +213,11 @@ export async function applyWatermark(inputBuffer, ctx) {
   const height = metadata.height || 800;
 
   const timestamp = ctx.timestamp || new Date().toISOString().split('T')[0];
-  const svgBuffer = buildWatermarkSvg(width, height, { ...ctx, timestamp });
+  const overlayBuffer = await buildWatermarkPng(width, height, { ...ctx, timestamp });
 
   const buffer = await image
-    // Flatten any alpha against white so PNG/WebP-with-transparency don't go
-    // black when re-encoded as JPEG.
     .flatten({ background: { r: 255, g: 255, b: 255 } })
-    .composite([{ input: svgBuffer, blend: 'over' }])
+    .composite([{ input: overlayBuffer, blend: 'over' }])
     .jpeg({ quality: 95, mozjpeg: true, chromaSubsampling: '4:4:4' })
     .toBuffer();
 
@@ -210,12 +266,8 @@ export async function applyVideoWatermark(inputBuffer, ctx) {
     // Write input video to temp file
     await writeFile(inputPath, inputBuffer);
 
-    // Generate transparent PNG watermark overlay using the same SVG builder as images
-    const svgBuffer = buildWatermarkSvg(refWidth, refHeight, { ...ctx, timestamp });
-    const overlayBuffer = await sharp(svgBuffer)
-      .resize(refWidth, refHeight)
-      .png()
-      .toBuffer();
+    // Generate transparent PNG watermark overlay using the Pango text renderer
+    const overlayBuffer = await buildWatermarkPng(refWidth, refHeight, { ...ctx, timestamp });
     await writeFile(overlayPath, overlayBuffer);
 
     // Use scale2ref to match overlay to video size, then overlay
