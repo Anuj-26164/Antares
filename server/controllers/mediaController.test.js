@@ -71,6 +71,10 @@ vi.mock('../models/Notification.js', () => ({
   },
 }));
 
+vi.mock('../utils/notificationAggregator.js', () => ({
+  upsertAggregatedNotification: vi.fn(),
+}));
+
 vi.mock('../sockets/notificationSocket.js', () => ({
   notifyUser: vi.fn(),
   emitPhotoLikedToOwner: vi.fn(),
@@ -99,6 +103,7 @@ import Event from '../models/Event.js';
 import User from '../models/User.js';
 import Notification from '../models/Notification.js';
 import { notifyUser, emitUserTagged } from '../sockets/notificationSocket.js';
+import { upsertAggregatedNotification } from '../utils/notificationAggregator.js';
 
 describe('mediaController — uploadMedia', () => {
   let req, res, next;
@@ -1070,7 +1075,7 @@ describe('mediaController — tagUsers', () => {
 
     const mockNotif1 = { _id: 'notif1', type: 'tag', recipient: 'user1' };
     const mockNotif2 = { _id: 'notif2', type: 'tag', recipient: 'user2' };
-    Notification.create
+    upsertAggregatedNotification
       .mockResolvedValueOnce(mockNotif1)
       .mockResolvedValueOnce(mockNotif2);
 
@@ -1084,14 +1089,12 @@ describe('mediaController — tagUsers', () => {
 
     await tagUsers(req, res, next);
 
-    expect(Notification.create).toHaveBeenCalledTimes(2);
-    expect(Notification.create).toHaveBeenCalledWith({
+    expect(upsertAggregatedNotification).toHaveBeenCalledTimes(2);
+    expect(upsertAggregatedNotification).toHaveBeenCalledWith({
       type: 'tag',
       recipient: 'user1',
-      relatedUser: req.user._id,
+      actor: { _id: req.user._id, name: 'Alice' },
       relatedMedia: req.params.id,
-      title: 'You were tagged',
-      message: 'Alice tagged you in a photo',
     });
     expect(notifyUser).toHaveBeenCalledTimes(2);
     expect(emitUserTagged).toHaveBeenCalledTimes(2);
@@ -1124,7 +1127,7 @@ describe('mediaController — tagUsers', () => {
     });
 
     const mockNotif = { _id: 'notif1', type: 'tag', recipient: 'user2' };
-    Notification.create.mockResolvedValue(mockNotif);
+    upsertAggregatedNotification.mockResolvedValue(mockNotif);
 
     const tagComment = {
       _id: 'tag-comment-1',
@@ -1136,7 +1139,7 @@ describe('mediaController — tagUsers', () => {
     await tagUsers(req, res, next);
 
     // Only user2 should be tagged, not the actor
-    expect(Notification.create).toHaveBeenCalledTimes(1);
+    expect(upsertAggregatedNotification).toHaveBeenCalledTimes(1);
     expect(notifyUser).toHaveBeenCalledTimes(1);
     expect(emitUserTagged).toHaveBeenCalledTimes(1);
     expect(res.status).toHaveBeenCalledWith(200);
@@ -1166,7 +1169,7 @@ describe('mediaController — tagUsers', () => {
     });
 
     const mockNotif = { _id: 'notif1', type: 'tag', recipient: 'user1' };
-    Notification.create.mockResolvedValue(mockNotif);
+    upsertAggregatedNotification.mockResolvedValue(mockNotif);
 
     const tagComment = {
       _id: 'tag-comment-1',
@@ -1178,7 +1181,7 @@ describe('mediaController — tagUsers', () => {
     await tagUsers(req, res, next);
 
     // Should only create 2 notifications (user1 deduplicated)
-    expect(Notification.create).toHaveBeenCalledTimes(2);
+    expect(upsertAggregatedNotification).toHaveBeenCalledTimes(2);
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
@@ -1200,7 +1203,7 @@ describe('mediaController — tagUsers', () => {
       ]),
     });
 
-    Notification.create
+    upsertAggregatedNotification
       .mockRejectedValueOnce(new Error('DB error'))
       .mockResolvedValueOnce({ _id: 'notif2', type: 'tag', recipient: 'user2' });
 
@@ -1214,7 +1217,7 @@ describe('mediaController — tagUsers', () => {
     await tagUsers(req, res, next);
 
     // Should still process user2 even though user1 failed
-    expect(Notification.create).toHaveBeenCalledTimes(2);
+    expect(upsertAggregatedNotification).toHaveBeenCalledTimes(2);
     expect(notifyUser).toHaveBeenCalledTimes(1); // only user2 succeeded
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json).toHaveBeenCalledWith({
