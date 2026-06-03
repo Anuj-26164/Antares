@@ -1,29 +1,29 @@
-import { motion } from 'framer-motion';
-import Badge from '../common/Badge.jsx';
-import BorderGlow from '../common/BorderGlow.jsx';
+import { motion } from "framer-motion";
+import Badge from "../common/Badge.jsx";
+import BorderGlow from "../common/BorderGlow.jsx";
 
 export default function EventAlbumCard({ event, onClick }) {
-  const coverImage = event.coverImage || '/placeholder-event.jpg';
+  const coverImage = event.coverImage || "/placeholder-event.jpg";
   const formattedDate = event.date
-    ? new Date(event.date).toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
+    ? new Date(event.date).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
       })
-    : '';
+    : "";
 
   return (
     <BorderGlow
       borderRadius={36}
       glowIntensity={0.5}
-      colors={['#60A5FA', '#3b82f6', '#60A5FA']}
+      colors={["#60A5FA", "#3b82f6", "#60A5FA"]}
       backgroundColor="#18181b"
     >
       <motion.div
         whileHover={{ scale: 1.02 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
         className="rounded-[36px] overflow-hidden bg-snow dark:bg-ink cursor-pointer relative group"
-        style={{ boxShadow: 'var(--shadow-card)' }}
+        style={{ boxShadow: "var(--shadow-card)" }}
         onClick={() => onClick?.(event)}
       >
         {/* Cover image */}
@@ -46,9 +46,19 @@ export default function EventAlbumCard({ event, onClick }) {
 
           {/* Media count badges */}
           <div className="absolute top-4 right-4 flex items-center gap-1.5">
-            {(event.photoCount > 0 || (!event.photoCount && !event.videoCount)) && (
+            {(event.photoCount > 0 ||
+              (!event.photoCount && !event.videoCount)) && (
               <span className="inline-flex items-center gap-1 rounded-[12px] px-3 py-1 text-[10px] font-medium bg-obsidian/70 text-snow backdrop-blur-sm">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
                   <circle cx="8.5" cy="8.5" r="1.5" />
                   <polyline points="21 15 16 10 5 21" />
@@ -58,7 +68,16 @@ export default function EventAlbumCard({ event, onClick }) {
             )}
             {event.videoCount > 0 && (
               <span className="inline-flex items-center gap-1 rounded-[12px] px-3 py-1 text-[10px] font-medium bg-obsidian/70 text-snow backdrop-blur-sm">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <polygon points="23 7 16 12 23 17 23 7" />
                   <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
                 </svg>
