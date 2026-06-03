@@ -1,8 +1,56 @@
 import sharp from 'sharp';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { readFileSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// ---------------------------------------------------------------------------
+// Bundled fonts — loaded once at module init and embedded into every watermark
+// SVG as base64 data URIs so that librsvg renders proper glyphs on Railway
+// (and any Linux env) even when no system font packages are installed.
+// ---------------------------------------------------------------------------
+function loadFont(filename) {
+  try {
+    const buf = readFileSync(join(__dirname, '..', 'assets', filename));
+    return buf.toString('base64');
+  } catch {
+    return null; // graceful — fall back to system fonts if file is missing
+  }
+}
+
+const FONT_REGULAR_B64 = loadFont('Roboto-Regular.woff');
+const FONT_BOLD_B64    = loadFont('Roboto-Bold.woff');
+
+/**
+ * Return an SVG <defs> block that declares @font-face rules using the bundled
+ * woff files embedded as base64 data URIs. If the font files are not present
+ * (e.g. local dev without assets/) this returns an empty string so we still
+ * fall back to whatever system fonts are available.
+ */
+function fontFaceDefs() {
+  if (!FONT_REGULAR_B64 && !FONT_BOLD_B64) return '';
+  const rules = [];
+  if (FONT_REGULAR_B64) {
+    rules.push(
+      `@font-face { font-family: 'BundledFont'; font-weight: normal; ` +
+      `src: url('data:font/woff;base64,${FONT_REGULAR_B64}') format('woff'); }`,
+    );
+  }
+  if (FONT_BOLD_B64) {
+    rules.push(
+      `@font-face { font-family: 'BundledFont'; font-weight: bold; ` +
+      `src: url('data:font/woff;base64,${FONT_BOLD_B64}') format('woff'); }`,
+    );
+  }
+  return `<defs><style>${rules.join(' ')}</style></defs>`;
+}
+
+// The font-family value to use inside SVG font-family attributes.
+// When bundled fonts are available, 'BundledFont' resolves to our woff files.
+const SVG_FONT_FAMILY = FONT_REGULAR_B64
+  ? 'BundledFont, Arial, Helvetica, Liberation Sans, sans-serif'
+  : 'Arial, Helvetica, Liberation Sans, sans-serif';
 
 const MAX_DIMENSION = 2048;
 const AVATAR_MAX_DIMENSION = 512;
@@ -107,12 +155,15 @@ async function buildWatermarkPng(width, height, ctx) {
   const lineGap = Math.round(fontSize * 0.4);
   const estH = fontSize + lineGap + fontSize2 + Math.round(fontSize * 0.3);
 
-  // Build the text block as SVG — two lines, white, semi-transparent.
+  // Build the text block as SVG with @font-face embedding our bundled woff
+  // fonts as base64 data URIs. This makes rendering self-contained so
+  // librsvg doesn't need any system font packages (critical on Railway).
   const svgText = Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${estW}" height="${estH}">
+      ${fontFaceDefs()}
       <text
         x="${estW / 2}" y="${fontSize}"
-        font-family="Arial, Helvetica, Liberation Sans, sans-serif"
+        font-family="${SVG_FONT_FAMILY}"
         font-size="${fontSize}"
         font-weight="bold"
         fill="white"
@@ -122,7 +173,7 @@ async function buildWatermarkPng(width, height, ctx) {
       >${line1}</text>
       <text
         x="${estW / 2}" y="${fontSize + lineGap + fontSize2}"
-        font-family="Arial, Helvetica, Liberation Sans, sans-serif"
+        font-family="${SVG_FONT_FAMILY}"
         font-size="${fontSize2}"
         font-weight="normal"
         fill="white"

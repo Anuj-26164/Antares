@@ -1,0 +1,16 @@
+# Railway (Nixpacks) configuration
+# Installs font packages so that Sharp's librsvg SVG renderer can resolve
+# generic font-family names (Arial, Helvetica, sans-serif) without falling
+# back to tofu/block characters.
+[phases.setup]
+nixPkgs = [
+  "fontconfig",
+  "liberation_ttf",
+  "freetype",
+]
+
+[phases.build]
+cmds = ["npm ci --production=false", "fc-cache -fv"]
+
+[start]
+cmd = "node index.js"
