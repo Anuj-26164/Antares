@@ -2,7 +2,17 @@
   command = "npm run build"
   publish = "dist"
 
-# Redirect all routes to index.html for client-side routing (React Router)
+# Proxy /api/* requests to the Railway backend so the browser never
+# makes cross-origin requests — this also avoids cookie/CORS issues.
+# Set RAILWAY_BACKEND_URL as a Netlify environment variable, e.g.
+#   https://your-app.up.railway.app
+[[redirects]]
+  from = "/api/*"
+  to = ":RAILWAY_BACKEND_URL/api/:splat"
+  status = 200
+  force = true
+
+# Redirect all other routes to index.html for client-side routing (React Router)
 [[redirects]]
   from = "/*"
   to = "/index.html"
