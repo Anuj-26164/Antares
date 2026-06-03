@@ -171,7 +171,6 @@ export async function applyWatermark(inputBuffer, ctx) {
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import ffmpeg from 'fluent-ffmpeg';
 import { tmpdir } from 'os';
-import { join } from 'path';
 import { writeFile, readFile, unlink } from 'fs/promises';
 import crypto from 'crypto';
 
