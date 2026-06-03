@@ -74,12 +74,15 @@ function escapeXml(str) {
  * @returns {Buffer} SVG buffer
  */
 /**
- * Build a single centered watermark SVG overlay.
- */
-/**
- * Build a centered diagonal watermark overlay as a PNG buffer using
- * Sharp's Pango text renderer. This avoids librsvg font issues entirely —
- * Pango always has a working fallback font on any Linux system.
+ * Build a centered diagonal watermark overlay as an SVG buffer, composited
+ * via Sharp's librsvg pipeline. This approach requires NO system fonts —
+ * librsvg is bundled with the Sharp npm package and works on Railway (and any
+ * other Linux environment) without extra apt packages.
+ *
+ * Previously this used Sharp's Pango text renderer which silently falls back
+ * to tofu (block squares) on Railway because the container has no installed
+ * font packages. SVG text with generic font-family names is handled entirely
+ * by librsvg's built-in font stack.
  *
  * @param {number} width  - Image width in px
  * @param {number} height - Image height in px
@@ -89,89 +92,67 @@ function escapeXml(str) {
 async function buildWatermarkPng(width, height, ctx) {
   const opacity = getOpacity(ctx.userRole);
   const fontSize = Math.max(18, Math.round(Math.min(width, height) * 0.032));
+  const fontSize2 = Math.round(fontSize * 0.82);
   const timestamp = ctx.timestamp || new Date().toISOString().split('T')[0];
 
-  const line1 = `${ctx.clubName} \u00b7 ${ctx.eventName}`;
-  const line2 = `${ctx.userName} \u00b7 ${timestamp}`;
+  const line1 = escapeXml(`${ctx.clubName} \u00b7 ${ctx.eventName}`);
+  const line2 = escapeXml(`${ctx.userName} \u00b7 ${timestamp}`);
 
-  // Render each line as a separate Sharp text image, then combine onto a
-  // transparent canvas and rotate/position it.
-  const alphaFull  = Math.round(opacity * 255);
-  const alphaSmall = Math.round(opacity * 0.85 * 255);
+  // Estimate text block dimensions (SVG units ≈ px for our font sizes).
+  // We over-estimate the width so the text never gets clipped.
+  const charW1 = fontSize * 0.6;
+  const charW2 = fontSize2 * 0.6;
+  const maxChars = Math.max(line1.length, line2.length);
+  const estW = Math.round(Math.max(charW1, charW2) * maxChars * 1.1);
+  const lineGap = Math.round(fontSize * 0.4);
+  const estH = fontSize + lineGap + fontSize2 + Math.round(fontSize * 0.3);
 
-  // Render line 1 (bold)
-  const text1Buf = await sharp({
-    text: {
-      text: `<span foreground="white">${escapeXml(line1)}</span>`,
-      font: 'Sans Bold',
-      fontSize,
-      rgba: true,
-    },
-  })
+  // Build the text block as SVG — two lines, white, semi-transparent.
+  const svgText = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${estW}" height="${estH}">
+      <text
+        x="${estW / 2}" y="${fontSize}"
+        font-family="Arial, Helvetica, Liberation Sans, sans-serif"
+        font-size="${fontSize}"
+        font-weight="bold"
+        fill="white"
+        fill-opacity="${opacity}"
+        text-anchor="middle"
+        dominant-baseline="auto"
+      >${line1}</text>
+      <text
+        x="${estW / 2}" y="${fontSize + lineGap + fontSize2}"
+        font-family="Arial, Helvetica, Liberation Sans, sans-serif"
+        font-size="${fontSize2}"
+        font-weight="normal"
+        fill="white"
+        fill-opacity="${opacity * 0.85}"
+        text-anchor="middle"
+        dominant-baseline="auto"
+      >${line2}</text>
+    </svg>`
+  );
+
+  // Rasterise the SVG text block to a PNG via Sharp.
+  const textBlockPng = await sharp(svgText)
     .png()
     .toBuffer();
 
-  const text1Meta = await sharp(text1Buf).metadata();
-  const t1w = text1Meta.width || 1;
-  const t1h = text1Meta.height || 1;
+  const textMeta = await sharp(textBlockPng).metadata();
+  const bw = textMeta.width  || estW;
+  const bh = textMeta.height || estH;
 
-  // Render line 2 (regular, slightly smaller)
-  const fontSize2 = Math.round(fontSize * 0.82);
-  const text2Buf = await sharp({
-    text: {
-      text: `<span foreground="white">${escapeXml(line2)}</span>`,
-      font: 'Sans',
-      fontSize: fontSize2,
-      rgba: true,
-    },
-  })
-    .png()
-    .toBuffer();
-
-  const text2Meta = await sharp(text2Buf).metadata();
-  const t2w = text2Meta.width || 1;
-  const t2h = text2Meta.height || 1;
-
-  const gap = Math.round(fontSize * 0.4);
-  const blockW = Math.max(t1w, t2w);
-  const blockH = t1h + gap + t2h;
-
-  // Composite both lines onto a transparent canvas, centered
-  const canvas = await sharp({
-    create: {
-      width: blockW,
-      height: blockH,
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    },
-  })
-    .composite([
-      {
-        input: await sharp(text1Buf).ensureAlpha().modulate({ brightness: 1 }).toBuffer(),
-        left: Math.round((blockW - t1w) / 2),
-        top: 0,
-        blend: 'over',
-      },
-      {
-        input: await sharp(text2Buf).ensureAlpha().toBuffer(),
-        left: Math.round((blockW - t2w) / 2),
-        top: t1h + gap,
-        blend: 'over',
-      },
-    ])
-    .png()
-    .toBuffer();
-
-  // Rotate -25° and place centered on a full-image transparent canvas
-  const rotated = await sharp(canvas)
+  // Rotate the text block -25° on a transparent canvas.
+  const rotated = await sharp(textBlockPng)
     .rotate(-25, { background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
 
   const rotMeta = await sharp(rotated).metadata();
-  const rw = rotMeta.width || blockW;
-  const rh = rotMeta.height || blockH;
+  const rw = rotMeta.width  || bw;
+  const rh = rotMeta.height || bh;
 
+  // Place the rotated block centred on a full-image transparent canvas.
   const overlay = await sharp({
     create: {
       width,
@@ -180,15 +161,12 @@ async function buildWatermarkPng(width, height, ctx) {
       background: { r: 0, g: 0, b: 0, alpha: 0 },
     },
   })
-    .composite([
-      {
-        input: rotated,
-        left: Math.round((width - rw) / 2),
-        top: Math.round((height - rh) / 2),
-        blend: 'over',
-      },
-    ])
-    // Apply the opacity by adjusting alpha channel
+    .composite([{
+      input: rotated,
+      left: Math.max(0, Math.round((width  - rw) / 2)),
+      top:  Math.max(0, Math.round((height - rh) / 2)),
+      blend: 'over',
+    }])
     .png()
     .toBuffer();
 
