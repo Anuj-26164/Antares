@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useInView } from 'framer-motion';
+import { motion, useInView } from 'framer-motion';
 
 const stats = [
   { numeral: 10000, suffix: '+', label: 'Photos Uploaded' },
@@ -58,24 +58,41 @@ function AnimatedNumber({ value, suffix, duration = 2000 }) {
 }
 
 export default function StatsSection() {
+  const sectionRef = useRef(null);
+  const inView = useInView(sectionRef, { once: true, amount: 0.25 });
+
   return (
-    <section className="py-16">
-      <div className="text-center mb-12">
+    <section ref={sectionRef} className="py-16">
+      <motion.div
+        initial={{ opacity: 0, y: 28 }}
+        animate={inView ? { opacity: 1, y: 0 } : {}}
+        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        className="text-center mb-12"
+      >
         <h2 className="text-[32px] md:text-[40px] font-bold text-obsidian dark:text-snow mb-3">
           Trusted by clubs everywhere
         </h2>
         <p className="text-steel dark:text-ash text-[16px] md:text-[18px]">
           Growing every day with passionate event organizers.
         </p>
-      </div>
+      </motion.div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-        {stats.map((stat) => (
-          <div key={stat.label}>
+        {stats.map((stat, i) => (
+          <motion.div
+            key={stat.label}
+            initial={{ opacity: 0, y: 28 }}
+            animate={inView ? { opacity: 1, y: 0 } : {}}
+            transition={{
+              duration: 0.7,
+              ease: [0.22, 1, 0.36, 1],
+              delay: 0.15 + i * 0.1,
+            }}
+          >
             <p className="text-[44px] md:text-[56px] font-bold text-obsidian dark:text-snow">
               <AnimatedNumber value={stat.numeral} suffix={stat.suffix} />
             </p>
             <p className="text-[14px] md:text-[15px] font-normal text-steel dark:text-ash mt-2">{stat.label}</p>
-          </div>
+          </motion.div>
         ))}
       </div>
     </section>
