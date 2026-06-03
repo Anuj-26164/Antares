@@ -199,21 +199,30 @@ export async function toggleBlockUser(req, res) {
   }
 }/**
  * GET /api/admin/notifications
- * Returns paginated notifications sorted by createdAt descending.
+ * Returns paginated platform-level notifications sorted by createdAt
+ * descending. The admin panel intentionally only shows broad, platform-wide
+ * notification types (e.g. new user registrations) — per-user signals like
+ * likes, comments, tags, and upload-access requests still reach the
+ * intended recipient via their personal bell, but they would flood this
+ * panel during an active event.
  */
+const ADMIN_PANEL_TYPES = ['user_registration', 'media_upload', 'activity'];
+
 export async function getNotifications(req, res) {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.max(1, Math.min(100, parseInt(req.query.limit) || 20));
     const skip = (page - 1) * limit;
 
+    const filter = { type: { $in: ADMIN_PANEL_TYPES } };
+
     const [notifications, total] = await Promise.all([
-      Notification.find()
+      Notification.find(filter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .populate('relatedUser', 'name avatar'),
-      Notification.countDocuments()
+      Notification.countDocuments(filter)
     ]);
 
     res.json({
@@ -249,11 +258,16 @@ export async function markNotificationRead(req, res) {
 
 /**
  * GET /api/admin/notifications/unread-count
- * Returns the count of unread notifications.
+ * Returns the count of unread notifications across the platform-level
+ * types surfaced in the admin panel. Mirrors the type filter used by
+ * getNotifications so the badge matches what the admin actually sees.
  */
 export async function getUnreadCount(req, res) {
   try {
-    const count = await Notification.countDocuments({ isRead: false });
+    const count = await Notification.countDocuments({
+      isRead: false,
+      type: { $in: ADMIN_PANEL_TYPES },
+    });
     res.json({ success: true, data: { count } });
   } catch (error) {
     res.status(500).json({ success: false, error: 'Internal server error' });
