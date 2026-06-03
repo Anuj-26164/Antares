@@ -27,12 +27,24 @@ export function subscribeToMediaUpdates() {
     useMediaStore.getState().markStale();
   };
 
+  const handleMediaTagsUpdated = ({ mediaId, tags }) => {
+    useMediaStore.getState().applyMediaTags(mediaId, tags);
+  };
+
+  const handleMediaCaptionUpdated = ({ mediaId, caption }) => {
+    useMediaStore.getState().applyMediaCaption(mediaId, caption);
+  };
+
   const unsubMediaUploaded = on('media-uploaded', handleMediaUploaded);
   const unsubGalleryUpdated = on('gallery-updated', handleGalleryUpdated);
+  const unsubMediaTagsUpdated = on('media-tags-updated', handleMediaTagsUpdated);
+  const unsubMediaCaptionUpdated = on('media-caption-updated', handleMediaCaptionUpdated);
 
   return () => {
     unsubMediaUploaded();
     unsubGalleryUpdated();
+    unsubMediaTagsUpdated();
+    unsubMediaCaptionUpdated();
     debouncedPrependMedia.cancel();
   };
 }
@@ -66,16 +78,28 @@ export function subscribeToEventRoom(eventId) {
     useMediaInteractionStore.getState().applyRemoteComment(payload);
   };
 
+  const handleMediaTagsUpdated = ({ mediaId, tags }) => {
+    useMediaStore.getState().applyMediaTags(mediaId, tags);
+  };
+
+  const handleMediaCaptionUpdated = ({ mediaId, caption }) => {
+    useMediaStore.getState().applyMediaCaption(mediaId, caption);
+  };
+
   const unsubMediaUploaded = on('media-uploaded', handleMediaUploaded);
   const unsubGalleryUpdated = on('gallery-updated', handleGalleryUpdated);
   const unsubPhotoLiked = on('photo-liked', handlePhotoLiked);
   const unsubNewComment = on('new-comment', handleNewComment);
+  const unsubMediaTagsUpdated = on('media-tags-updated', handleMediaTagsUpdated);
+  const unsubMediaCaptionUpdated = on('media-caption-updated', handleMediaCaptionUpdated);
 
   return () => {
     unsubMediaUploaded();
     unsubGalleryUpdated();
     unsubPhotoLiked();
     unsubNewComment();
+    unsubMediaTagsUpdated();
+    unsubMediaCaptionUpdated();
     debouncedPrependMedia.cancel();
     unsubscribeFromRoom();
   };
