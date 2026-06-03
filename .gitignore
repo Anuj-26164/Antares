@@ -38,6 +38,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+.kiro/
 
 # Local scratch / experiments
 # Ignore ad-hoc smoke scripts at the server root (e.g. test-gemini.js, test-cf-ai.js).
