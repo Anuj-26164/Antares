@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { getMe, updateMe, getMyFavourites, changeRole, uploadAvatar as uploadAvatarHandler, searchUsers } from '../controllers/userController.js';
+import { listMyUploadRequests } from '../controllers/uploadGrantController.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 import { roleMiddleware } from '../middleware/roleMiddleware.js';
 import { uploadAvatar as uploadAvatarMiddleware } from '../middleware/uploadMiddleware.js';
@@ -17,6 +18,9 @@ router.put('/me', updateMe);
 
 // GET /api/users/me/favourites — Get current user's favourited media
 router.get('/me/favourites', getMyFavourites);
+
+// GET /api/users/me/upload-requests — current user's upload-access requests
+router.get('/me/upload-requests', listMyUploadRequests);
 
 // POST /api/users/me/avatar — Upload a new avatar image
 router.post('/me/avatar', ...uploadAvatarMiddleware, uploadAvatarHandler);
