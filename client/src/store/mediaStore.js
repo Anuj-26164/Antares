@@ -119,6 +119,32 @@ const useMediaStore = create((set, get) => ({
   markStale: () => {
     set({ stale: true });
   },
+
+  /**
+   * Apply server-pushed smart tags to a media item already in the list.
+   * No-op if the item isn't loaded yet (the next fetch will pick up the tags).
+   */
+  applyMediaTags: (mediaId, tags) => {
+    if (!mediaId || !Array.isArray(tags)) return;
+    set((state) => ({
+      items: state.items.map((item) =>
+        item._id === mediaId ? { ...item, tags } : item
+      ),
+    }));
+  },
+
+  /**
+   * Apply a server-pushed AI caption to a media item already in the list.
+   * No-op if the item isn't loaded yet.
+   */
+  applyMediaCaption: (mediaId, caption) => {
+    if (!mediaId || typeof caption !== 'string') return;
+    set((state) => ({
+      items: state.items.map((item) =>
+        item._id === mediaId ? { ...item, caption } : item
+      ),
+    }));
+  },
 }));
 
 export default useMediaStore;
