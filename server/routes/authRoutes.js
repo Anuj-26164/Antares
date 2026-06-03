@@ -6,6 +6,7 @@ import {
   logout,
   refresh,
   googleCallback,
+  exchangeToken,
 } from '../controllers/authController.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 import createRateLimiter from '../middleware/rateLimiter.js';
@@ -29,6 +30,9 @@ router.post('/logout', authMiddleware, logout);
 
 // POST /api/auth/refresh — Refresh access token via refresh cookie
 router.post('/refresh', refreshLimiter, refresh);
+
+// POST /api/auth/session — Exchange a one-time token (from OAuth redirect) for cookies
+router.post('/session', exchangeToken);
 
 // GET /api/auth/google — Redirect to Google OAuth consent screen
 router.get(

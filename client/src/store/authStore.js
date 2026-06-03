@@ -86,7 +86,8 @@ const useAuthStore = create((set, get) => ({
   },
 
   googleLogin: () => {
-    window.location.href = '/api/auth/google';
+    const apiBase = import.meta.env.VITE_API_URL || '';
+    window.location.href = `${apiBase}/api/auth/google`;
   },
 
   fetchUser: async () => {

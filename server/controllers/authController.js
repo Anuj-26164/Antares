@@ -295,6 +295,65 @@ export async function refresh(req, res) {
 }
 
 /**
+ * Exchange a short-lived token (passed via OAuth redirect query param) for
+ * proper httpOnly cookies. Called by the frontend immediately after Google
+ * OAuth redirects back with ?token=...
+ *
+ * @route POST /api/auth/session
+ * @body { token: string }
+ * @returns 200 { success: true, data: user }
+ * @returns 401 on invalid token
+ */
+export async function exchangeToken(req, res) {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'Token required' });
+    }
+
+    // Verify the access token
+    let decoded;
+    try {
+      decoded = verifyAccessToken(token);
+    } catch {
+      return res.status(401).json({ success: false, error: 'Invalid or expired token' });
+    }
+
+    const user = await User.findById(decoded.userId).select('-password -refreshToken');
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'User not found' });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({ success: false, error: 'Account blocked' });
+    }
+
+    // Issue fresh tokens and set cookies now that we're in a direct API call
+    // (cookies set here will be accepted by the browser for this domain)
+    const accessToken = generateAccessToken(user._id.toString());
+    const refreshToken = generateRefreshToken(user._id.toString());
+
+    await User.findByIdAndUpdate(user._id, { refreshToken });
+    setAuthCookies(res, accessToken, refreshToken);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, error: 'Session exchange failed' });
+  }
+}
+
+/**
  * Google OAuth callback handler.
  * Called after Passport success; issues tokens, sets cookies,
  * redirects to CLIENT_URL. On failure redirects to login with error.
@@ -331,8 +390,10 @@ export async function googleCallback(req, res) {
     setAuthCookies(res, accessToken, refreshToken);
 
     // Redirect to client — admins go to /admin, others to /gallery
+    // Pass the access token as a query param so the frontend can bootstrap
+    // the session even though the cookie was set on a different domain.
     const redirectPath = user.role === 'admin' ? '/admin' : '/gallery';
-    return res.redirect(`${config.CLIENT_URL}${redirectPath}`);
+    return res.redirect(`${config.CLIENT_URL}${redirectPath}?token=${accessToken}`);
   } catch (error) {
     return res.redirect(
       `${config.CLIENT_URL}/login?error=google_auth_failed`

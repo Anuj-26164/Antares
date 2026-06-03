@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import useAuthStore from './store/authStore.js';
 import { connectSocket, disconnectSocket } from './sockets/socket.js';
@@ -24,6 +24,7 @@ import MediaManagementPanel from './pages/admin/MediaManagementPanel.jsx';
 import UserManagementPanel from './pages/admin/UserManagementPanel.jsx';
 import NotificationsPanel from './pages/admin/NotificationsPanel.jsx';
 import SettingsPanel from './pages/admin/SettingsPanel.jsx';
+import api from './utils/api.js';
 
 const pageTransition = {
   initial: { opacity: 0, y: 10 },
@@ -50,9 +51,34 @@ function AnimatedPage({ children }) {
 
 export default function App() {
   const location = useLocation();
+  const navigate = useNavigate();
   const initAuth = useAuthStore((state) => state.initAuth);
   const hydrated = useAuthStore((state) => state.hydrated);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+
+  // Handle Google OAuth redirect — ?token= param is passed back from the backend.
+  // Exchange it for proper httpOnly cookies via POST /auth/session, then clean the URL.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const token = params.get('token');
+    if (!token) return;
+
+    // Remove token from URL immediately so it's not visible or bookmarkable
+    params.delete('token');
+    const cleanSearch = params.toString();
+    navigate(location.pathname + (cleanSearch ? `?${cleanSearch}` : ''), { replace: true });
+
+    api.post('/auth/session', { token })
+      .then((res) => {
+        const user = res.data.data;
+        useAuthStore.setState({ user, isAuthenticated: true, hydrated: true });
+        try { localStorage.setItem('antares_user', JSON.stringify(user)); } catch { /* ignore */ }
+      })
+      .catch(() => {
+        // Token invalid — fall through to normal initAuth
+        initAuth();
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     initAuth();
