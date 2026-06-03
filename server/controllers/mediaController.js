@@ -4,28 +4,53 @@
  * as well as favouriting, commenting, listing comments, and deletion.
  */
 
-import mongoose from 'mongoose';
-import { GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import r2Client, { R2_BUCKET_NAME } from '../config/r2.js';
-import config from '../config/env.js';
-import { compressImage, compressAvatar, applyWatermark, applyVideoWatermark, extractVideoThumbnail } from '../utils/imageProcessor.js';
-import sharp from 'sharp';
-import Media from '../models/Media.js';
-import Comment from '../models/Comment.js';
-import Event from '../models/Event.js';
-import User from '../models/User.js';
-import Notification from '../models/Notification.js';
-import { canUserUploadToEvent } from './uploadGrantController.js';
-import { emitMediaUploaded, emitGalleryUpdated, emitPhotoLikedToEvent, emitNewCommentToEvent, emitMediaTagsUpdated, emitMediaCaptionUpdated } from '../sockets/mediaSocket.js';
-import { notifyUser, emitPhotoLikedToOwner, emitNewCommentToUser, emitUserTagged } from '../sockets/notificationSocket.js';
-import { upsertAggregatedNotification } from '../utils/notificationAggregator.js';
-import { generateImageTags } from '../utils/imageTagger.js';
-import { generateImageCaption } from '../utils/imageCaptioner.js';
-import { emitActivityUpdate } from '../sockets/activitySocket.js';
-import { detectMimeFromBuffer, isAllowedMime } from '../middleware/uploadMiddleware.js';
+import mongoose from "mongoose";
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  DeleteObjectCommand,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import r2Client, { R2_BUCKET_NAME } from "../config/r2.js";
+import config from "../config/env.js";
+import {
+  compressImage,
+  compressAvatar,
+  applyWatermark,
+  applyVideoWatermark,
+  extractVideoThumbnail,
+} from "../utils/imageProcessor.js";
+import sharp from "sharp";
+import Media from "../models/Media.js";
+import Comment from "../models/Comment.js";
+import Event from "../models/Event.js";
+import User from "../models/User.js";
+import Notification from "../models/Notification.js";
+import { canUserUploadToEvent } from "./uploadGrantController.js";
+import {
+  emitMediaUploaded,
+  emitGalleryUpdated,
+  emitPhotoLikedToEvent,
+  emitNewCommentToEvent,
+  emitMediaTagsUpdated,
+  emitMediaCaptionUpdated,
+} from "../sockets/mediaSocket.js";
+import {
+  notifyUser,
+  emitPhotoLikedToOwner,
+  emitNewCommentToUser,
+  emitUserTagged,
+} from "../sockets/notificationSocket.js";
+import { upsertAggregatedNotification } from "../utils/notificationAggregator.js";
+import { generateImageTags } from "../utils/imageTagger.js";
+import { generateImageCaption } from "../utils/imageCaptioner.js";
+import { emitActivityUpdate } from "../sockets/activitySocket.js";
+import {
+  detectMimeFromBuffer,
+  isAllowedMime,
+} from "../middleware/uploadMiddleware.js";
 
-const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const IMAGE_MIMES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 /**
  * Download an object from R2 by key and return its contents as a Buffer.
@@ -91,7 +116,13 @@ async function deleteFromR2(key) {
  * @param {{ title?: string, category?: string, date?: string|Date }} [eventCtx]
  * @param {boolean} [needsCaption=false]  Whether to also fill in an AI caption.
  */
-function processImageInBackground(mediaId, eventId, originalBuffer, eventCtx, needsCaption = false) {
+function processImageInBackground(
+  mediaId,
+  eventId,
+  originalBuffer,
+  eventCtx,
+  needsCaption = false,
+) {
   // Tags + caption are independent calls; run them in parallel so the
   // user's gallery card lights up as fast as possible.
   const tagJob = generateImageTags(originalBuffer, { eventCtx })
@@ -101,13 +132,19 @@ function processImageInBackground(mediaId, eventId, originalBuffer, eventCtx, ne
         await Media.findByIdAndUpdate(mediaId, { tags });
         emitMediaTagsUpdated(eventId, { mediaId, tags });
       } catch (dbErr) {
-        console.error(`[smart-tag] failed to persist tags for ${mediaId}:`, dbErr.message);
+        console.error(
+          `[smart-tag] failed to persist tags for ${mediaId}:`,
+          dbErr.message,
+        );
       }
     })
     .catch((err) => {
       const code = err?.code;
-      if (code === 'AI_UNAVAILABLE') return;
-      console.error(`[smart-tag] tagging failed for ${mediaId} (${code || 'UNKNOWN'}):`, err.message);
+      if (code === "AI_UNAVAILABLE") return;
+      console.error(
+        `[smart-tag] tagging failed for ${mediaId} (${code || "UNKNOWN"}):`,
+        err.message,
+      );
     });
 
   const captionJob = needsCaption
@@ -118,13 +155,19 @@ function processImageInBackground(mediaId, eventId, originalBuffer, eventCtx, ne
             await Media.findByIdAndUpdate(mediaId, { caption });
             emitMediaCaptionUpdated(eventId, { mediaId, caption });
           } catch (dbErr) {
-            console.error(`[ai-caption] failed to persist caption for ${mediaId}:`, dbErr.message);
+            console.error(
+              `[ai-caption] failed to persist caption for ${mediaId}:`,
+              dbErr.message,
+            );
           }
         })
         .catch((err) => {
           const code = err?.code;
-          if (code === 'AI_UNAVAILABLE') return;
-          console.error(`[ai-caption] caption failed for ${mediaId} (${code || 'UNKNOWN'}):`, err.message);
+          if (code === "AI_UNAVAILABLE") return;
+          console.error(
+            `[ai-caption] caption failed for ${mediaId} (${code || "UNKNOWN"}):`,
+            err.message,
+          );
         })
     : Promise.resolve();
 
@@ -152,7 +195,7 @@ export async function uploadMedia(req, res, next) {
     if (!eventId || !mongoose.Types.ObjectId.isValid(eventId)) {
       return res.status(400).json({
         success: false,
-        error: 'Valid eventId is required',
+        error: "Valid eventId is required",
       });
     }
 
@@ -161,7 +204,7 @@ export async function uploadMedia(req, res, next) {
     if (!event) {
       return res.status(404).json({
         success: false,
-        error: 'Event not found',
+        error: "Event not found",
       });
     }
 
@@ -170,16 +213,16 @@ export async function uploadMedia(req, res, next) {
     const { allowed, reason } = await canUserUploadToEvent(req.user, eventId);
     if (!allowed) {
       const errorMsg =
-        reason === 'no_grant'
-          ? 'You need approval from an admin to upload to this event'
-          : 'Insufficient permissions';
+        reason === "no_grant"
+          ? "You need approval from an admin to upload to this event"
+          : "Insufficient permissions";
       return res.status(403).json({ success: false, error: errorMsg });
     }
 
     if (files.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'No files provided for upload.',
+        error: "No files provided for upload.",
       });
     }
 
@@ -194,10 +237,14 @@ export async function uploadMedia(req, res, next) {
       const raw = req.body.captions;
       if (Array.isArray(raw)) {
         captions = raw;
-      } else if (typeof raw === 'string') {
+      } else if (typeof raw === "string") {
         const trimmed = raw.trim();
-        if (trimmed.startsWith('[')) {
-          try { captions = JSON.parse(trimmed); } catch { captions = [trimmed]; }
+        if (trimmed.startsWith("[")) {
+          try {
+            captions = JSON.parse(trimmed);
+          } catch {
+            captions = [trimmed];
+          }
         } else {
           captions = [trimmed];
         }
@@ -205,7 +252,7 @@ export async function uploadMedia(req, res, next) {
     }
     const captionFor = (idx) => {
       const c = captions[idx];
-      return typeof c === 'string' ? c.trim().slice(0, 500) : '';
+      return typeof c === "string" ? c.trim().slice(0, 500) : "";
     };
 
     const uploaded = [];
@@ -217,7 +264,7 @@ export async function uploadMedia(req, res, next) {
         const isImage = IMAGE_MIMES.includes(file.mimetype);
         let finalKey = file.key;
         let finalUrl = `${config.R2_PUBLIC_URL}/${file.key}`;
-        const mediaType = isImage ? 'photo' : 'video';
+        const mediaType = isImage ? "photo" : "video";
 
         if (isImage) {
           // Download the original uploaded file from R2
@@ -228,11 +275,14 @@ export async function uploadMedia(req, res, next) {
           if (!isAllowedMime(detectedMime)) {
             // Delete the already-uploaded original from R2 before rejecting
             await deleteFromR2(file.key).catch((err) =>
-              console.error(`Failed to delete rejected file ${file.key}:`, err.message)
+              console.error(
+                `Failed to delete rejected file ${file.key}:`,
+                err.message,
+              ),
             );
             rejected.push({
               originalname: file.originalname,
-              reason: `File content does not match an allowed type. Detected: ${detectedMime || 'unknown'}.`,
+              reason: `File content does not match an allowed type. Detected: ${detectedMime || "unknown"}.`,
             });
             continue;
           }
@@ -245,12 +295,12 @@ export async function uploadMedia(req, res, next) {
           // download endpoint can serve. The compressed WebP becomes the
           // canonical r2Key used by the gallery and existing endpoints.
           const originalKey = file.key;
-          const webpKey = originalKey.replace(/\.[^.]+$/, '.webp');
-          const baseName = originalKey.split('/').pop();
+          const webpKey = originalKey.replace(/\.[^.]+$/, ".webp");
+          const baseName = originalKey.split("/").pop();
           const originalArchiveKey = `originals/${baseName}`;
 
           // Upload the compressed version to R2
-          await uploadToR2(webpKey, compressedBuffer, 'image/webp');
+          await uploadToR2(webpKey, compressedBuffer, "image/webp");
 
           // Archive the original buffer under originals/ for full-quality
           // downloads. We re-upload from the in-memory buffer rather than
@@ -278,13 +328,16 @@ export async function uploadMedia(req, res, next) {
           try {
             const videoBuffer = await downloadFromR2(file.key);
             const thumbBuffer = await extractVideoThumbnail(videoBuffer);
-            const thumbKey = file.key.replace(/\.[^.]+$/, '-thumb.webp');
-            await uploadToR2(thumbKey, thumbBuffer, 'image/webp');
+            const thumbKey = file.key.replace(/\.[^.]+$/, "-thumb.webp");
+            await uploadToR2(thumbKey, thumbBuffer, "image/webp");
             thumbnailR2Key = thumbKey;
             thumbnailUrl = `${config.R2_PUBLIC_URL}/${thumbKey}`;
           } catch (thumbErr) {
             // Thumbnail generation is non-critical — log and continue
-            console.error('Video thumbnail extraction failed:', thumbErr.message);
+            console.error(
+              "Video thumbnail extraction failed:",
+              thumbErr.message,
+            );
           }
         }
 
@@ -298,7 +351,9 @@ export async function uploadMedia(req, res, next) {
           type: mediaType,
           isPublic: event.isPublic,
           ...(userCaption && { caption: userCaption }),
-          ...(file._originalArchiveKey && { originalR2Key: file._originalArchiveKey }),
+          ...(file._originalArchiveKey && {
+            originalR2Key: file._originalArchiveKey,
+          }),
           ...(thumbnailUrl && { thumbnailUrl }),
           ...(thumbnailR2Key && { thumbnailR2Key }),
         });
@@ -321,7 +376,7 @@ export async function uploadMedia(req, res, next) {
         // Collect the rejection info for this file
         rejected.push({
           originalname: file.originalname,
-          reason: fileError.message || 'Processing failed',
+          reason: fileError.message || "Processing failed",
         });
       }
     }
@@ -342,7 +397,7 @@ export async function uploadMedia(req, res, next) {
       // Emit activity-update for the upload activity
       emitActivityUpdate(eventId, {
         _id: `media_upload:${uploaded[0]._id}`,
-        type: 'media_upload',
+        type: "media_upload",
         eventId,
         actor: {
           _id: req.user._id,
@@ -350,7 +405,7 @@ export async function uploadMedia(req, res, next) {
           avatar: req.user.avatar || undefined,
         },
         target: { mediaId: uploaded[0]._id.toString() },
-        message: `${req.user.name} uploaded ${uploaded.length} ${uploaded.length === 1 ? 'item' : 'items'}`,
+        message: `${req.user.name} uploaded ${uploaded.length} ${uploaded.length === 1 ? "item" : "items"}`,
         createdAt: new Date().toISOString(),
       });
     }
@@ -382,13 +437,18 @@ export async function uploadMedia(req, res, next) {
 export async function listMedia(req, res, next) {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
-    const sortBy = req.query.sortBy || 'uploadDate';
-    const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
+    const limit = Math.min(
+      100,
+      Math.max(1, parseInt(req.query.limit, 10) || 20),
+    );
+    const sortBy = req.query.sortBy || "uploadDate";
+    const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
     const eventIdFilter = req.query.eventId;
 
-    const userRole = req.user.role;
-    const canViewPrivate = ['admin', 'photographer', 'club_member'].includes(userRole);
+    const userRole = req.user?.role;
+    const canViewPrivate = ["admin", "photographer", "club_member"].includes(
+      userRole,
+    );
 
     // Build filter
     const filter = {};
@@ -407,10 +467,10 @@ export async function listMedia(req, res, next) {
     // Build sort
     let sort = {};
     let useLikesAggregation = false;
-    if (sortBy === 'likes') {
+    if (sortBy === "likes") {
       // Sort by favouritedBy array length (the actual like count)
       useLikesAggregation = true;
-    } else if (sortBy === 'eventDate') {
+    } else if (sortBy === "eventDate") {
       sort = { _eventDate: sortOrder };
     } else {
       // Default: uploadDate (createdAt)
@@ -422,25 +482,30 @@ export async function listMedia(req, res, next) {
     let data;
     let total;
 
-    if (sortBy === 'eventDate') {
+    if (sortBy === "eventDate") {
       // Use aggregation to sort by event date
       const matchStage = { $match: filter };
       const lookupStage = {
         $lookup: {
-          from: 'events',
-          localField: 'eventId',
-          foreignField: '_id',
-          as: '_event',
+          from: "events",
+          localField: "eventId",
+          foreignField: "_id",
+          as: "_event",
         },
       };
-      const unwindStage = { $unwind: { path: '$_event', preserveNullAndEmptyArrays: true } };
+      const unwindStage = {
+        $unwind: { path: "$_event", preserveNullAndEmptyArrays: true },
+      };
       const addFieldsStage = {
-        $addFields: { _eventDate: { $ifNull: ['$_event.date', '$createdAt'] } },
+        $addFields: { _eventDate: { $ifNull: ["$_event.date", "$createdAt"] } },
       };
       const sortStage = { $sort: { _eventDate: sortOrder } };
       const projectStage = { $project: { _event: 0, _eventDate: 0 } };
 
-      const countResult = await Media.aggregate([matchStage, { $count: 'total' }]);
+      const countResult = await Media.aggregate([
+        matchStage,
+        { $count: "total" },
+      ]);
       total = countResult.length > 0 ? countResult[0].total : 0;
 
       data = await Media.aggregate([
@@ -457,12 +522,17 @@ export async function listMedia(req, res, next) {
       // Sort by favouritedBy array length
       const matchStage = { $match: filter };
       const addFieldsStage = {
-        $addFields: { _likeCount: { $size: { $ifNull: ['$favouritedBy', []] } } },
+        $addFields: {
+          _likeCount: { $size: { $ifNull: ["$favouritedBy", []] } },
+        },
       };
       const sortStage = { $sort: { _likeCount: sortOrder } };
       const projectStage = { $project: { _likeCount: 0 } };
 
-      const countResult = await Media.aggregate([matchStage, { $count: 'total' }]);
+      const countResult = await Media.aggregate([
+        matchStage,
+        { $count: "total" },
+      ]);
       total = countResult.length > 0 ? countResult[0].total : 0;
 
       data = await Media.aggregate([
@@ -476,24 +546,33 @@ export async function listMedia(req, res, next) {
     } else {
       total = await Media.countDocuments(filter);
       data = await Media.find(filter)
-        .populate('eventId', 'title date')
-        .populate('uploadedBy', 'name avatar')
+        .populate("eventId", "title date")
+        .populate("uploadedBy", "name avatar")
         .sort(sort)
         .skip(skip)
         .limit(limit);
     }
 
-    // Add isFavourited field for the current user
-    const userId = req.user._id.toString();
-    const items = data.map((item) => {
+    // Add isFavourited field for the current user, and accessUrl for private media
+    const userId = req.user?._id?.toString();
+    const items = await Promise.all(data.map(async (item) => {
       const obj = item.toObject ? item.toObject() : item;
+      let accessUrl;
+      if (!obj.isPublic) {
+        // Private media: generate a short-lived pre-signed URL so <img> tags can load it
+        const command = new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: obj.r2Key });
+        accessUrl = await getSignedUrl(r2Client, command, { expiresIn: 900 });
+      } else {
+        accessUrl = `/api/media/${obj._id}/serve`;
+      }
       return {
         ...obj,
-        isFavourited: (obj.favouritedBy || []).some(
-          (id) => id.toString() === userId
-        ),
+        accessUrl,
+        isFavourited: userId
+          ? (obj.favouritedBy || []).some((id) => id.toString() === userId)
+          : false,
       };
-    });
+    }));
 
     return res.status(200).json({
       success: true,
@@ -528,18 +607,20 @@ export async function getMedia(req, res, next) {
     if (!media) {
       return res.status(404).json({
         success: false,
-        error: 'Media not found.',
+        error: "Media not found.",
       });
     }
 
     // If media is private, check role
     if (!media.isPublic) {
       const userRole = req.user.role;
-      const canAccess = ['admin', 'photographer', 'club_member'].includes(userRole);
+      const canAccess = ["admin", "photographer", "club_member"].includes(
+        userRole,
+      );
       if (!canAccess) {
         return res.status(403).json({
           success: false,
-          error: 'Insufficient permissions.',
+          error: "Insufficient permissions.",
         });
       }
 
@@ -548,7 +629,9 @@ export async function getMedia(req, res, next) {
         Bucket: R2_BUCKET_NAME,
         Key: media.r2Key,
       });
-      const signedUrl = await getSignedUrl(r2Client, command, { expiresIn: 900 });
+      const signedUrl = await getSignedUrl(r2Client, command, {
+        expiresIn: 900,
+      });
 
       return res.status(200).json({
         success: true,
@@ -589,32 +672,50 @@ export async function serveMedia(req, res, next) {
   try {
     const { id } = req.params;
     const media = await Media.findById(id);
-    if (!media) return res.status(404).json({ success: false, error: 'Media not found.' });
+    if (!media)
+      return res
+        .status(404)
+        .json({ success: false, error: "Media not found." });
 
     if (!media.isPublic) {
       // Private media: require authentication first
       if (!req.user) {
-        return res.status(401).json({ success: false, error: 'Authentication required.' });
+        return res
+          .status(401)
+          .json({ success: false, error: "Authentication required." });
       }
-      const canAccess = ['admin', 'photographer', 'club_member'].includes(req.user.role);
-      if (!canAccess) return res.status(403).json({ success: false, error: 'Insufficient permissions.' });
+      const canAccess = ["admin", "photographer", "club_member"].includes(
+        req.user.role,
+      );
+      if (!canAccess)
+        return res
+          .status(403)
+          .json({ success: false, error: "Insufficient permissions." });
     }
 
-    const command = new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: media.r2Key });
+    const command = new GetObjectCommand({
+      Bucket: R2_BUCKET_NAME,
+      Key: media.r2Key,
+    });
     const r2Response = await r2Client.send(command);
 
     const mimeMap = {
-      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-      webp: 'image/webp', gif: 'image/gif',
-      mp4: 'video/mp4', mov: 'video/quicktime', webm: 'video/webm',
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+      gif: "image/gif",
+      mp4: "video/mp4",
+      mov: "video/quicktime",
+      webm: "video/webm",
     };
-    const ext = media.r2Key.split('.').pop()?.toLowerCase() || 'jpg';
-    const contentType = mimeMap[ext] || 'application/octet-stream';
+    const ext = media.r2Key.split(".").pop()?.toLowerCase() || "jpg";
+    const contentType = mimeMap[ext] || "application/octet-stream";
 
     res.set({
-      'Content-Type': contentType,
-      'Cache-Control': 'private, max-age=3600',
-      'X-Content-Type-Options': 'nosniff',
+      "Content-Type": contentType,
+      "Cache-Control": "private, max-age=3600",
+      "X-Content-Type-Options": "nosniff",
     });
 
     r2Response.Body.pipe(res);
@@ -633,22 +734,28 @@ export async function serveThumbnail(req, res, next) {
   try {
     const { id } = req.params;
     const media = await Media.findById(id);
-    if (!media) return res.status(404).json({ success: false, error: 'Media not found.' });
+    if (!media)
+      return res
+        .status(404)
+        .json({ success: false, error: "Media not found." });
 
     // For photos, just serve the image directly
-    if (media.type !== 'video') {
+    if (media.type !== "video") {
       return res.redirect(`/api/media/${id}/serve`);
     }
 
     // If thumbnail already exists, serve it from R2
     if (media.thumbnailR2Key) {
       try {
-        const command = new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: media.thumbnailR2Key });
+        const command = new GetObjectCommand({
+          Bucket: R2_BUCKET_NAME,
+          Key: media.thumbnailR2Key,
+        });
         const r2Response = await r2Client.send(command);
         res.set({
-          'Content-Type': 'image/webp',
-          'Cache-Control': 'public, max-age=86400',
-          'X-Content-Type-Options': 'nosniff',
+          "Content-Type": "image/webp",
+          "Cache-Control": "public, max-age=86400",
+          "X-Content-Type-Options": "nosniff",
         });
         return r2Response.Body.pipe(res);
       } catch {
@@ -661,21 +768,30 @@ export async function serveThumbnail(req, res, next) {
     try {
       videoBuffer = await downloadFromR2(media.r2Key);
     } catch {
-      return res.status(503).json({ success: false, error: 'Could not fetch video.' });
+      return res
+        .status(503)
+        .json({ success: false, error: "Could not fetch video." });
     }
 
     let thumbBuffer;
     try {
       thumbBuffer = await extractVideoThumbnail(videoBuffer);
     } catch (err) {
-      console.error('Thumbnail generation failed for media', id, ':', err.message);
-      return res.status(500).json({ success: false, error: 'Thumbnail generation failed.' });
+      console.error(
+        "Thumbnail generation failed for media",
+        id,
+        ":",
+        err.message,
+      );
+      return res
+        .status(500)
+        .json({ success: false, error: "Thumbnail generation failed." });
     }
 
     // Cache the thumbnail to R2 for future requests
-    const thumbKey = media.r2Key.replace(/\.[^.]+$/, '-thumb.webp');
+    const thumbKey = media.r2Key.replace(/\.[^.]+$/, "-thumb.webp");
     try {
-      await uploadToR2(thumbKey, thumbBuffer, 'image/webp');
+      await uploadToR2(thumbKey, thumbBuffer, "image/webp");
       // Update the media record with the thumbnail info
       media.thumbnailR2Key = thumbKey;
       media.thumbnailUrl = `${config.R2_PUBLIC_URL}/${thumbKey}`;
@@ -685,9 +801,9 @@ export async function serveThumbnail(req, res, next) {
     }
 
     res.set({
-      'Content-Type': 'image/webp',
-      'Cache-Control': 'public, max-age=86400',
-      'X-Content-Type-Options': 'nosniff',
+      "Content-Type": "image/webp",
+      "Cache-Control": "public, max-age=86400",
+      "X-Content-Type-Options": "nosniff",
     });
     return res.status(200).send(thumbBuffer);
   } catch (error) {
@@ -700,29 +816,45 @@ export async function downloadMedia(req, res, next) {
     const { id } = req.params;
 
     // Fetch media and populate event details
-    const media = await Media.findById(id).populate('eventId', 'title category');
+    const media = await Media.findById(id).populate(
+      "eventId",
+      "title category",
+    );
     if (!media) {
-      return res.status(404).json({ success: false, error: 'Media not found.' });
+      return res
+        .status(404)
+        .json({ success: false, error: "Media not found." });
     }
 
-    const isVideo = media.type === 'video';
+    const isVideo = media.type === "video";
 
     // For images, prefer the archived original (full quality) when available.
     // Falls back to the compressed gallery copy for legacy records.
-    const sourceKey = !isVideo && media.originalR2Key ? media.originalR2Key : media.r2Key;
+    const sourceKey =
+      !isVideo && media.originalR2Key ? media.originalR2Key : media.r2Key;
 
     let fileBuffer;
     try {
       fileBuffer = await downloadFromR2(sourceKey);
     } catch {
-      return res.status(503).json({ success: false, error: 'Service temporarily unavailable. Please try again later.' });
+      return res
+        .status(503)
+        .json({
+          success: false,
+          error: "Service temporarily unavailable. Please try again later.",
+        });
     }
 
-    const sourceExt = sourceKey.split('.').pop()?.toLowerCase() || (isVideo ? 'mp4' : 'jpg');
-    const safeTitle = (media.eventId?.title || 'media').replace(/[^a-z0-9]/gi, '_');
+    const sourceExt =
+      sourceKey.split(".").pop()?.toLowerCase() || (isVideo ? "mp4" : "jpg");
+    const safeTitle = (media.eventId?.title || "media").replace(
+      /[^a-z0-9]/gi,
+      "_",
+    );
 
     // Admin can skip watermark via ?watermark=false — serve the source as-is.
-    const skipWatermark = req.user.role === 'admin' && req.query.watermark === 'false';
+    const skipWatermark =
+      req.user.role === "admin" && req.query.watermark === "false";
 
     if (skipWatermark) {
       // Re-encode images to JPEG so the user always gets a universally
@@ -732,27 +864,29 @@ export async function downloadMedia(req, res, next) {
       let outputContentType;
 
       if (isVideo) {
-        outputExt = 'mp4';
-        outputContentType = 'video/mp4';
+        outputExt = "mp4";
+        outputContentType = "video/mp4";
       } else {
         try {
           outputBuffer = await sharp(fileBuffer)
             .flatten({ background: { r: 255, g: 255, b: 255 } })
-            .jpeg({ quality: 95, mozjpeg: true, chromaSubsampling: '4:4:4' })
+            .jpeg({ quality: 95, mozjpeg: true, chromaSubsampling: "4:4:4" })
             .toBuffer();
         } catch (sharpErr) {
-          console.error('JPEG re-encode failed:', sharpErr.message);
-          return res.status(500).json({ success: false, error: 'Image processing failed.' });
+          console.error("JPEG re-encode failed:", sharpErr.message);
+          return res
+            .status(500)
+            .json({ success: false, error: "Image processing failed." });
         }
-        outputExt = 'jpg';
-        outputContentType = 'image/jpeg';
+        outputExt = "jpg";
+        outputContentType = "image/jpeg";
       }
 
       const filename = `${safeTitle}_${id}.${outputExt}`;
       res.set({
-        'Content-Type': outputContentType,
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length': outputBuffer.length,
+        "Content-Type": outputContentType,
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": outputBuffer.length,
       });
       return res.status(200).send(outputBuffer);
     }
@@ -761,22 +895,27 @@ export async function downloadMedia(req, res, next) {
       let watermarkedVideo;
       try {
         watermarkedVideo = await applyVideoWatermark(fileBuffer, {
-          clubName:  'Antares',
-          eventName: media.eventId?.title || 'Event',
-          userName:  req.user.name || req.user.email || 'User',
-          userRole:  req.user.role || 'viewer',
-          timestamp: new Date().toISOString().split('T')[0],
+          clubName: "Antares",
+          eventName: media.eventId?.title || "Event",
+          userName: req.user.name || req.user.email || "User",
+          userRole: req.user.role || "viewer",
+          timestamp: new Date().toISOString().split("T")[0],
         });
       } catch (ffmpegErr) {
-        console.error('FFmpeg watermark failed:', ffmpegErr.message);
-        return res.status(500).json({ success: false, error: 'Video watermarking failed. Please try again.' });
+        console.error("FFmpeg watermark failed:", ffmpegErr.message);
+        return res
+          .status(500)
+          .json({
+            success: false,
+            error: "Video watermarking failed. Please try again.",
+          });
       }
       // applyVideoWatermark always outputs MP4 (libx264 + faststart).
       const filename = `${safeTitle}_${id}.mp4`;
       res.set({
-        'Content-Type': 'video/mp4',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Content-Length': watermarkedVideo.length,
+        "Content-Type": "video/mp4",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+        "Content-Length": watermarkedVideo.length,
       });
       return res.status(200).send(watermarkedVideo);
     }
@@ -785,22 +924,27 @@ export async function downloadMedia(req, res, next) {
     let result;
     try {
       result = await applyWatermark(fileBuffer, {
-        clubName:  'Antares',
-        eventName: media.eventId?.title || 'Event',
-        userName:  req.user.name || req.user.email || 'User',
-        userRole:  req.user.role || 'viewer',
-        timestamp: new Date().toISOString().split('T')[0],
+        clubName: "Antares",
+        eventName: media.eventId?.title || "Event",
+        userName: req.user.name || req.user.email || "User",
+        userRole: req.user.role || "viewer",
+        timestamp: new Date().toISOString().split("T")[0],
       });
     } catch (sharpErr) {
-      console.error('Image watermark failed:', sharpErr.message);
-      return res.status(500).json({ success: false, error: 'Image watermarking failed. Please try again.' });
+      console.error("Image watermark failed:", sharpErr.message);
+      return res
+        .status(500)
+        .json({
+          success: false,
+          error: "Image watermarking failed. Please try again.",
+        });
     }
 
     const filename = `${safeTitle}_${id}.${result.ext}`;
     res.set({
-      'Content-Type': result.contentType,
-      'Content-Disposition': `attachment; filename="${filename}"`,
-      'Content-Length': result.buffer.length,
+      "Content-Type": result.contentType,
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Length": result.buffer.length,
     });
     return res.status(200).send(result.buffer);
   } catch (error) {
@@ -825,12 +969,12 @@ export async function toggleFavourite(req, res, next) {
     if (!media) {
       return res.status(404).json({
         success: false,
-        error: 'Media not found.',
+        error: "Media not found.",
       });
     }
 
     const index = media.favouritedBy.findIndex(
-      (uid) => uid.toString() === userId.toString()
+      (uid) => uid.toString() === userId.toString(),
     );
 
     let favourited;
@@ -863,25 +1007,33 @@ export async function toggleFavourite(req, res, next) {
     if (favourited && actorId !== ownerId) {
       try {
         const notif = await upsertAggregatedNotification({
-          type: 'like',
+          type: "like",
           recipient: ownerId,
           actor: { _id: req.user._id, name: req.user.name },
           relatedMedia: id,
         });
         notifyUser(ownerId, notif, actorId);
-        emitPhotoLikedToOwner(ownerId, { mediaId: id, count, by: { _id: actorId, name: req.user.name } }, actorId);
+        emitPhotoLikedToOwner(
+          ownerId,
+          { mediaId: id, count, by: { _id: actorId, name: req.user.name } },
+          actorId,
+        );
       } catch (notifErr) {
         // Notification creation is non-critical — log and continue
-        console.error('Like notification failed:', notifErr.message);
+        console.error("Like notification failed:", notifErr.message);
       }
     }
 
     // Emit activity update for the like/unlike action
     emitActivityUpdate(eventId, {
       _id: `like:${id}:${actorId}:${Date.now()}`,
-      type: 'like',
+      type: "like",
       eventId,
-      actor: { _id: actorId, name: req.user.name, avatar: req.user.avatar || undefined },
+      actor: {
+        _id: actorId,
+        name: req.user.name,
+        avatar: req.user.avatar || undefined,
+      },
       target: { mediaId: id },
       message: favourited
         ? `${req.user.name} liked a photo`
@@ -912,10 +1064,15 @@ export async function addComment(req, res, next) {
     const { text } = req.body;
 
     // Validate text
-    if (!text || typeof text !== 'string' || text.trim().length === 0 || text.length > 1000) {
+    if (
+      !text ||
+      typeof text !== "string" ||
+      text.trim().length === 0 ||
+      text.length > 1000
+    ) {
       return res.status(400).json({
         success: false,
-        error: 'Comment text must be between 1 and 1000 characters.',
+        error: "Comment text must be between 1 and 1000 characters.",
       });
     }
 
@@ -923,7 +1080,7 @@ export async function addComment(req, res, next) {
     if (!media) {
       return res.status(404).json({
         success: false,
-        error: 'Media not found.',
+        error: "Media not found.",
       });
     }
 
@@ -941,7 +1098,7 @@ export async function addComment(req, res, next) {
     const eventId = String(media.eventId);
 
     // Populate comment user data and build CommentSocketPayload
-    const populated = await comment.populate('userId', 'name avatar');
+    const populated = await comment.populate("userId", "name avatar");
     const commentPayload = {
       _id: String(populated._id),
       mediaId: id,
@@ -963,7 +1120,7 @@ export async function addComment(req, res, next) {
       const ownerId = String(media.uploadedBy);
       if (ownerId !== actorId) {
         const notif = await upsertAggregatedNotification({
-          type: 'comment',
+          type: "comment",
           recipient: ownerId,
           actor: { _id: req.user._id, name: req.user.name },
           relatedMedia: id,
@@ -973,15 +1130,19 @@ export async function addComment(req, res, next) {
       }
     } catch (notifErr) {
       // Notification creation is non-critical — log and continue
-      console.error('Comment notification failed:', notifErr.message);
+      console.error("Comment notification failed:", notifErr.message);
     }
 
     // Emit activity update for the comment action
     emitActivityUpdate(eventId, {
       _id: `comment:${id}:${actorId}:${Date.now()}`,
-      type: 'comment',
+      type: "comment",
       eventId,
-      actor: { _id: actorId, name: req.user.name, avatar: req.user.avatar || undefined },
+      actor: {
+        _id: actorId,
+        name: req.user.name,
+        avatar: req.user.avatar || undefined,
+      },
       target: { mediaId: id, commentId: String(comment._id) },
       message: `${req.user.name} commented on a photo`,
       createdAt: new Date().toISOString(),
@@ -1010,11 +1171,11 @@ export async function listComments(req, res, next) {
     const { id } = req.params;
 
     // Fetch the media to check its visibility
-    const media = await Media.findById(id).select('isPublic');
+    const media = await Media.findById(id).select("isPublic");
     if (!media) {
       return res.status(404).json({
         success: false,
-        error: 'Media not found.',
+        error: "Media not found.",
       });
     }
 
@@ -1023,20 +1184,22 @@ export async function listComments(req, res, next) {
       if (!req.user) {
         return res.status(401).json({
           success: false,
-          error: 'Authentication required.',
+          error: "Authentication required.",
         });
       }
-      const canAccess = ['admin', 'photographer', 'club_member'].includes(req.user.role);
+      const canAccess = ["admin", "photographer", "club_member"].includes(
+        req.user.role,
+      );
       if (!canAccess) {
         return res.status(403).json({
           success: false,
-          error: 'Insufficient permissions.',
+          error: "Insufficient permissions.",
         });
       }
     }
 
     const comments = await Comment.find({ mediaId: id })
-      .populate('userId', 'name avatar')
+      .populate("userId", "name avatar")
       .sort({ createdAt: 1 });
 
     return res.status(200).json({
@@ -1066,7 +1229,7 @@ export async function tagUsers(req, res, next) {
     if (!Array.isArray(userIds) || userIds.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'userIds must be a non-empty array.',
+        error: "userIds must be a non-empty array.",
       });
     }
 
@@ -1074,7 +1237,7 @@ export async function tagUsers(req, res, next) {
     if (!media) {
       return res.status(404).json({
         success: false,
-        error: 'Media not found.',
+        error: "Media not found.",
       });
     }
 
@@ -1082,43 +1245,59 @@ export async function tagUsers(req, res, next) {
     const eventId = String(media.eventId);
 
     // Deduplicate and exclude self
-    const uniqueUserIds = [...new Set(userIds)].filter((uid) => String(uid) !== actorId);
+    const uniqueUserIds = [...new Set(userIds)].filter(
+      (uid) => String(uid) !== actorId,
+    );
 
     if (uniqueUserIds.length === 0) {
       return res.status(200).json({ success: true, data: { tagged: [] } });
     }
 
     // Fetch tagged users' names for the comment text
-    const taggedUsers = await User.find({ _id: { $in: uniqueUserIds } }).select('_id name').lean();
-    const taggedMap = Object.fromEntries(taggedUsers.map((u) => [String(u._id), u.name]));
+    const taggedUsers = await User.find({ _id: { $in: uniqueUserIds } })
+      .select("_id name")
+      .lean();
+    const taggedMap = Object.fromEntries(
+      taggedUsers.map((u) => [String(u._id), u.name]),
+    );
 
     const tagged = [];
 
     for (const taggedId of uniqueUserIds) {
       try {
         const notif = await upsertAggregatedNotification({
-          type: 'tag',
+          type: "tag",
           recipient: taggedId,
           actor: { _id: req.user._id, name: req.user.name },
           relatedMedia: id,
         });
 
         notifyUser(taggedId, notif, actorId);
-        emitUserTagged(taggedId, { mediaId: id, eventId, by: { _id: actorId, name: req.user.name } }, actorId);
+        emitUserTagged(
+          taggedId,
+          { mediaId: id, eventId, by: { _id: actorId, name: req.user.name } },
+          actorId,
+        );
 
         tagged.push(taggedId);
       } catch (notifErr) {
-        console.error('Tag notification failed for user', taggedId, ':', notifErr.message);
+        console.error(
+          "Tag notification failed for user",
+          taggedId,
+          ":",
+          notifErr.message,
+        );
       }
     }
 
     // Post a single system comment listing all tagged users
     if (tagged.length > 0) {
       try {
-        const names = tagged.map((uid) => taggedMap[String(uid)] || 'someone');
-        const nameList = names.length === 1
-          ? names[0]
-          : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+        const names = tagged.map((uid) => taggedMap[String(uid)] || "someone");
+        const nameList =
+          names.length === 1
+            ? names[0]
+            : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
         const commentText = `${req.user.name} tagged ${nameList} in this photo.`;
 
         const tagComment = await Comment.create({
@@ -1131,7 +1310,7 @@ export async function tagUsers(req, res, next) {
         await media.save();
 
         // Emit the comment to the event room so it appears live
-        const populated = await tagComment.populate('userId', 'name avatar');
+        const populated = await tagComment.populate("userId", "name avatar");
         const commentPayload = {
           _id: String(populated._id),
           mediaId: id,
@@ -1146,7 +1325,7 @@ export async function tagUsers(req, res, next) {
         };
         emitNewCommentToEvent(eventId, commentPayload);
       } catch (commentErr) {
-        console.error('Tag comment creation failed:', commentErr.message);
+        console.error("Tag comment creation failed:", commentErr.message);
       }
     }
 
@@ -1171,7 +1350,9 @@ export async function updateMedia(req, res, next) {
 
     const media = await Media.findById(id);
     if (!media) {
-      return res.status(404).json({ success: false, error: 'Media not found.' });
+      return res
+        .status(404)
+        .json({ success: false, error: "Media not found." });
     }
 
     if (isPublic !== undefined) {
@@ -1206,17 +1387,17 @@ export async function deleteMedia(req, res, next) {
     if (!media) {
       return res.status(404).json({
         success: false,
-        error: 'Media not found.',
+        error: "Media not found.",
       });
     }
 
     // Verify requester is admin or the uploader
-    const isAdmin = userRole === 'admin';
+    const isAdmin = userRole === "admin";
     const isUploader = media.uploadedBy.toString() === userId.toString();
     if (!isAdmin && !isUploader) {
       return res.status(403).json({
         success: false,
-        error: 'Insufficient permissions.',
+        error: "Insufficient permissions.",
       });
     }
 
@@ -1230,24 +1411,33 @@ export async function deleteMedia(req, res, next) {
     try {
       await deleteFromR2(media.r2Key);
     } catch (r2Error) {
-      console.error(`R2 delete failed for key ${media.r2Key}:`, r2Error.message);
+      console.error(
+        `R2 delete failed for key ${media.r2Key}:`,
+        r2Error.message,
+      );
       return res.status(500).json({
         success: false,
-        error: 'Media deletion could not be completed due to storage failure.',
+        error: "Media deletion could not be completed due to storage failure.",
       });
     }
 
     // Delete video thumbnail from R2 if it exists (fire-and-forget — don't block on failure)
     if (media.thumbnailR2Key) {
       deleteFromR2(media.thumbnailR2Key).catch((err) => {
-        console.error(`R2 thumbnail delete failed for key ${media.thumbnailR2Key}:`, err.message);
+        console.error(
+          `R2 thumbnail delete failed for key ${media.thumbnailR2Key}:`,
+          err.message,
+        );
       });
     }
 
     // Delete archived original from R2 if one exists (fire-and-forget).
     if (media.originalR2Key) {
       deleteFromR2(media.originalR2Key).catch((err) => {
-        console.error(`R2 original delete failed for key ${media.originalR2Key}:`, err.message);
+        console.error(
+          `R2 original delete failed for key ${media.originalR2Key}:`,
+          err.message,
+        );
       });
     }
 
@@ -1256,7 +1446,7 @@ export async function deleteMedia(req, res, next) {
 
     return res.status(200).json({
       success: true,
-      data: { message: 'Media deleted successfully.' },
+      data: { message: "Media deleted successfully." },
     });
   } catch (error) {
     next(error);

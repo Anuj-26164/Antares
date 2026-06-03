@@ -321,7 +321,7 @@ export default function ProfilePage() {
                           />
                         ) : (
                           <img
-                            src={`/api/media/${item._id}/serve`}
+                            src={item.accessUrl || `/api/media/${item._id}/serve`}
                             alt={item.title || 'Media'}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                           />

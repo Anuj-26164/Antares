@@ -1,5 +1,6 @@
 import crypto from 'crypto';
-import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import User from '../models/User.js';
 import Media from '../models/Media.js';
 import r2Client, { R2_BUCKET_NAME } from '../config/r2.js';
@@ -185,10 +186,24 @@ export async function getMyFavourites(req, res) {
 
   const filter = { favouritedBy: req.user._id };
 
-  const [media, total] = await Promise.all([
+  const [mediaItems, total] = await Promise.all([
     Media.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
     Media.countDocuments(filter)
   ]);
+
+  // Attach accessUrl — private media gets a short-lived pre-signed R2 URL
+  // so browser <img> tags can load it without sending auth cookies.
+  const media = await Promise.all(
+    mediaItems.map(async (item) => {
+      const obj = item.toObject ? item.toObject() : item;
+      if (!obj.isPublic) {
+        const command = new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: obj.r2Key });
+        const accessUrl = await getSignedUrl(r2Client, command, { expiresIn: 900 });
+        return { ...obj, accessUrl };
+      }
+      return { ...obj, accessUrl: `/api/media/${obj._id}/serve` };
+    })
+  );
 
   return res.status(200).json({
     success: true,

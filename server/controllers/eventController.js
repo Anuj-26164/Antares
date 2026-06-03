@@ -2,7 +2,8 @@ import Event from '../models/Event.js';
 import Media from '../models/Media.js';
 import Comment from '../models/Comment.js';
 import crypto from 'crypto';
-import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import r2Client, { R2_BUCKET_NAME } from '../config/r2.js';
 import config from '../config/env.js';
 import { compressImage } from '../utils/imageProcessor.js';
@@ -116,10 +117,24 @@ export async function getPublicEvent(req, res) {
       mediaFilter.isPublic = true;
     }
 
-    const [media, mediaTotal] = await Promise.all([
+    const [mediaItems, mediaTotal] = await Promise.all([
       Media.find(mediaFilter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
       Media.countDocuments(mediaFilter)
     ]);
+
+    // Attach accessUrl to each media item.
+    // Private media gets a short-lived pre-signed R2 URL so the browser <img> tag
+    // can load it without needing to send auth cookies (which plain img tags cannot do).
+    const media = await Promise.all(
+      mediaItems.map(async (item) => {
+        if (!item.isPublic) {
+          const command = new GetObjectCommand({ Bucket: R2_BUCKET_NAME, Key: item.r2Key });
+          const accessUrl = await getSignedUrl(r2Client, command, { expiresIn: 900 });
+          return { ...item, accessUrl };
+        }
+        return { ...item, accessUrl: `/api/media/${item._id}/serve` };
+      })
+    );
 
     return res.status(200).json({
       success: true,
