@@ -39,3 +39,21 @@ export function emitPhotoLikedToEvent(eventId, payload) {
 export function emitNewCommentToEvent(eventId, commentPayload) {
   return emitToEvent(eventId, 'new-comment', commentPayload);
 }
+/**
+ * Emits a `media-tags-updated` event when smart-tagging finishes for a media item.
+ * @param {string} eventId  - Event room receiving the emit
+ * @param {{ mediaId: string, tags: string[] }} payload
+ * @returns {boolean} true if emitted, false if throttled or io not initialized
+ */
+export function emitMediaTagsUpdated(eventId, payload) {
+  return emitToEvent(eventId, 'media-tags-updated', payload);
+}
+/**
+ * Emits a `media-caption-updated` event when AI captioning finishes.
+ * @param {string} eventId
+ * @param {{ mediaId: string, caption: string }} payload
+ * @returns {boolean}
+ */
+export function emitMediaCaptionUpdated(eventId, payload) {
+  return emitToEvent(eventId, 'media-caption-updated', payload);
+}
