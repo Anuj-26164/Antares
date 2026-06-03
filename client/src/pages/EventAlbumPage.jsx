@@ -25,10 +25,50 @@ export default function EventAlbumPage() {
   const [mediaTotalPages, setMediaTotalPages] = useState(1);
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState(null); // { allowed, reason, grantStatus }
+  const [requestMessage, setRequestMessage] = useState('');
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [submittingRequest, setSubmittingRequest] = useState(false);
+  const [requestError, setRequestError] = useState('');
 
   useEffect(() => {
     fetchEventAlbum();
   }, [id, mediaPage]);
+
+  // Fetch the user's upload eligibility once the user and event are known.
+  useEffect(() => {
+    if (!user || !id) {
+      setUploadStatus(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get(`/events/${id}/upload-status`);
+        if (!cancelled) setUploadStatus(res.data?.data || null);
+      } catch {
+        if (!cancelled) setUploadStatus(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user, id]);
+
+  async function submitUploadRequest() {
+    setSubmittingRequest(true);
+    setRequestError('');
+    try {
+      await api.post(`/events/${id}/upload-requests`, { message: requestMessage });
+      // Refresh status; will land in pending state.
+      const res = await api.get(`/events/${id}/upload-status`);
+      setUploadStatus(res.data?.data || null);
+      setShowRequestForm(false);
+      setRequestMessage('');
+    } catch (err) {
+      setRequestError(err.response?.data?.error || 'Failed to submit request');
+    } finally {
+      setSubmittingRequest(false);
+    }
+  }
 
   // Subscribe to the event room for realtime media updates; unsubscribe on unmount or eventId change
   useEffect(() => {
@@ -133,7 +173,7 @@ export default function EventAlbumPage() {
                   transition={{ duration: 0.3, ease: 'easeInOut' }}
                   className="overflow-hidden"
                 >
-                  <p className="text-snow/70 text-[14px] leading-[1.8] max-w-3xl">
+                  <p className="text-snow/70 text-[14px] leading-[1.8]">
                     {event.description}
                   </p>
                 </motion.div>
@@ -163,10 +203,97 @@ export default function EventAlbumPage() {
             </div>
           )}
 
-          {/* Upload zone for authorized roles */}
-          {user && ['admin', 'photographer', 'club_member'].includes(user.role) && (
+          {/* Upload zone for authorized roles or approved requesters */}
+          {user && uploadStatus?.allowed && (
             <div className="max-w-7xl mx-auto px-6 mt-6">
               <UploadZone eventId={id} onUploadComplete={fetchEventAlbum} />
+            </div>
+          )}
+
+          {/* Request upload access — for users without an existing role grant */}
+          {user && uploadStatus && !uploadStatus.allowed && (
+            <div className="max-w-7xl mx-auto px-6 mt-6">
+              <div className="rounded-[28px] bg-white/60 dark:bg-ink/60 backdrop-blur-[12px] border border-fog dark:border-graphite px-6 py-4">
+                {uploadStatus.grantStatus === 'pending' && (
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-[14px] text-ink dark:text-snow">
+                      <span className="inline-block w-2 h-2 rounded-full bg-amber-400 mr-2 align-middle" />
+                      Your upload request is pending review.
+                    </p>
+                  </div>
+                )}
+
+                {uploadStatus.grantStatus === 'denied' && !showRequestForm && (
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-[14px] text-ink dark:text-snow">
+                      <span className="inline-block w-2 h-2 rounded-full bg-red-400 mr-2 align-middle" />
+                      Your previous request was declined.
+                    </p>
+                    <Button variant="outline" size="sm" pill onClick={() => setShowRequestForm(true)}>
+                      Try again
+                    </Button>
+                  </div>
+                )}
+
+                {uploadStatus.grantStatus === 'revoked' && !showRequestForm && (
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-[14px] text-ink dark:text-snow">
+                      Your upload access was revoked.
+                    </p>
+                    <Button variant="outline" size="sm" pill onClick={() => setShowRequestForm(true)}>
+                      Request again
+                    </Button>
+                  </div>
+                )}
+
+                {(uploadStatus.grantStatus === null || uploadStatus.grantStatus === undefined) && !showRequestForm && (
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-[14px] text-ink dark:text-snow">
+                      Want to add photos to this event? Request upload access from an admin.
+                    </p>
+                    <Button variant="filled" size="sm" pill onClick={() => setShowRequestForm(true)}>
+                      Request upload access
+                    </Button>
+                  </div>
+                )}
+
+                {showRequestForm && (
+                  <div className="flex flex-col gap-3">
+                    <p className="text-[13px] text-steel dark:text-ash">
+                      Add an optional note for the organiser (e.g. which photos you plan to share).
+                    </p>
+                    <textarea
+                      value={requestMessage}
+                      onChange={(e) => setRequestMessage(e.target.value)}
+                      placeholder="Optional message…"
+                      maxLength={500}
+                      className="w-full rounded-[14px] bg-gray-50 dark:bg-obsidian border border-gray-200 dark:border-graphite px-4 py-2.5 text-[14px] text-ink dark:text-snow placeholder:text-steel outline-none resize-none h-[80px]"
+                    />
+                    {requestError && (
+                      <p className="text-[12px] text-red-400">{requestError}</p>
+                    )}
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        pill
+                        onClick={() => { setShowRequestForm(false); setRequestError(''); }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="filled"
+                        size="sm"
+                        pill
+                        disabled={submittingRequest}
+                        onClick={submitUploadRequest}
+                      >
+                        {submittingRequest ? 'Submitting…' : 'Submit request'}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
