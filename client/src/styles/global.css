@@ -96,12 +96,80 @@ html, body {
   }
 }
 
-/* ── Hide scrollbar ── */
-::-webkit-scrollbar {
-  display: none;
+/* ── Custom scrollbar (subtle) ──
+ * Scoped to the *page* scrollbar only (html/body). Inner scrollable
+ * containers (modals, media lists, dropdowns, admin tables, etc.) keep
+ * the browser default so the page styling doesn't spread everywhere.
+ *
+ * The thumb is a quiet graphite that brightens only on hover — easy to
+ * find when you reach for it, invisible the rest of the time.
+ *
+ * Opt-in for an internal element: add the `.brand-scrollbar` class.
+ * Opt-out (hide entirely): add the `.no-scrollbar` class.
+ */
+
+/* Firefox + IE/Edge legacy — only the document scrollbar gets styled */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #2e2e33 transparent;
 }
 
-html {
+/* WebKit (Chromium, Safari, modern Edge) — page + opt-in containers only */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+.brand-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+.brand-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+.brand-scrollbar::-webkit-scrollbar-thumb {
+  background: #2e2e33;
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 200ms ease;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover,
+.brand-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #4a4a52;
+  background-clip: padding-box;
+}
+
+html::-webkit-scrollbar-thumb:active,
+body::-webkit-scrollbar-thumb:active,
+.brand-scrollbar::-webkit-scrollbar-thumb:active {
+  background: #5a5a64;
+  background-clip: padding-box;
+}
+
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner,
+.brand-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Opt-in for internal containers that should match the page styling.
+ * Pair with the WebKit rules above so Firefox renders the same color. */
+.brand-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #2e2e33 transparent;
+}
+
+/* Hide scrollbars only where explicitly opted out */
+.no-scrollbar {
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
