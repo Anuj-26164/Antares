@@ -315,13 +315,13 @@ export default function ProfilePage() {
                       <div className="aspect-[4/3] relative overflow-hidden">
                         {item.type === 'video' ? (
                           <img
-                            src={item.thumbnailAccessUrl || item.thumbnailUrl || `${import.meta.env.VITE_API_URL || ''}/api/media/${item._id}/thumbnail`}
+                            src={item.thumbnailUrl || `/api/media/${item._id}/thumbnail`}
                             alt={item.title || 'Video'}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                           />
                         ) : (
                           <img
-                            src={item.accessUrl || `${import.meta.env.VITE_API_URL || ''}/api/media/${item._id}/serve`}
+                            src={item.accessUrl || `/api/media/${item._id}/serve`}
                             alt={item.title || 'Media'}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                           />

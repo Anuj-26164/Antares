@@ -33,7 +33,7 @@ export default function MediaCard({ media, onFavourite, onClick }) {
   const apiBase = import.meta.env.VITE_API_URL || '';
 
   const videoThumbSrc =
-    media.thumbnailAccessUrl || `${apiBase}/api/media/${media._id}/thumbnail`;
+    media.thumbnailUrl || `${apiBase}/api/media/${media._id}/thumbnail`;
 
   const imageSrc = media.accessUrl || `${apiBase}/api/media/${media._id}/serve`;
 

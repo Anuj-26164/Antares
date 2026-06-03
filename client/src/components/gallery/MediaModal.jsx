@@ -247,7 +247,7 @@ export default function MediaModal({ media, onClose, onFavourite }) {
               <div className="w-full h-full min-h-[300px] max-h-[70vh]">
                 <VideoPlayer
                   src={media.accessUrl || `${import.meta.env.VITE_API_URL || ''}/api/media/${media._id}/serve`}
-                  poster={media.thumbnailAccessUrl || undefined}
+                  poster={media.thumbnailUrl || undefined}
                   onDownload={() => handleDownload(true)}
                   onFavourite={handleLike}
                   onShare={handleShare}
