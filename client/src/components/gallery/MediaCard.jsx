@@ -24,7 +24,12 @@ export default function MediaCard({ media, onFavourite, onClick }) {
     : (Array.isArray(media.comments) ? media.comments.length : 0);
 
   const type = media.type || 'photo';
-  const videoThumbSrc = media.thumbnailUrl || `/api/media/${media._id}/thumbnail`;
+  // Always use the proxied thumbnail endpoint for private media so the auth
+  // cookie is included in the request. For public media, prefer the direct
+  // thumbnailUrl when available to avoid an extra server round-trip.
+  const videoThumbSrc = (!media.isPublic || !media.thumbnailUrl)
+    ? `/api/media/${media._id}/thumbnail`
+    : media.thumbnailUrl;
 
   return (
     <BorderGlow
