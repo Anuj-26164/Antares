@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import useAuthStore from '../../store/authStore.js';
+import PageLoader from '../common/PageLoader.jsx';
 
 /**
  * Redirects authenticated users away from guest-only pages (login, register, landing).
@@ -10,11 +11,7 @@ export default function GuestRoute({ children }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   if (!hydrated) {
-    return (
-      <div className="min-h-screen bg-obsidian flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-graphite border-t-snow rounded-full animate-spin" />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   if (isAuthenticated) {
