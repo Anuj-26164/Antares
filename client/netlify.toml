@@ -4,11 +4,9 @@
 
 # Proxy /api/* requests to the Railway backend so the browser never
 # makes cross-origin requests — this also avoids cookie/CORS issues.
-# Set RAILWAY_BACKEND_URL as a Netlify environment variable, e.g.
-#   https://your-app.up.railway.app
 [[redirects]]
   from = "/api/*"
-  to = ":RAILWAY_BACKEND_URL/api/:splat"
+  to = "https://antares-production-7b79.up.railway.app/api/:splat"
   status = 200
   force = true
 
