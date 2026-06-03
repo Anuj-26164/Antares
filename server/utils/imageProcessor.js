@@ -1,4 +1,14 @@
 import sharp from 'sharp';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Embed fonts as Base64 so the SVG watermark renders correctly on any server
+// (Railway/Linux containers don't have Arial/Helvetica installed).
+const _fontRegularB64 = readFileSync(join(__dirname, '../assets/DejaVuSans.ttf')).toString('base64');
+const _fontBoldB64    = readFileSync(join(__dirname, '../assets/DejaVuSans-Bold.ttf')).toString('base64');
 
 const MAX_DIMENSION = 2048;
 const AVATAR_MAX_DIMENSION = 512;
@@ -84,12 +94,26 @@ function buildWatermarkSvg(width, height, ctx) {
   const cy = height / 2;
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+    <defs>
+      <style>
+        @font-face {
+          font-family: 'WMFont';
+          font-weight: 600;
+          src: url('data:font/truetype;base64,${_fontBoldB64}') format('truetype');
+        }
+        @font-face {
+          font-family: 'WMFont';
+          font-weight: 400;
+          src: url('data:font/truetype;base64,${_fontRegularB64}') format('truetype');
+        }
+      </style>
+    </defs>
     <g transform="translate(${cx}, ${cy}) rotate(-25)">
       <text
         x="0" y="${-lineHeight / 2}"
         text-anchor="middle"
         dominant-baseline="middle"
-        font-family="Arial, Helvetica, sans-serif"
+        font-family="WMFont, sans-serif"
         font-size="${fontSize}"
         font-weight="600"
         fill="white"
@@ -100,7 +124,7 @@ function buildWatermarkSvg(width, height, ctx) {
         x="0" y="${lineHeight / 2}"
         text-anchor="middle"
         dominant-baseline="middle"
-        font-family="Arial, Helvetica, sans-serif"
+        font-family="WMFont, sans-serif"
         font-size="${Math.round(fontSize * 0.82)}"
         font-weight="400"
         fill="white"
