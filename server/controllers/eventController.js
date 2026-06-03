@@ -6,6 +6,7 @@ import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import r2Client, { R2_BUCKET_NAME } from '../config/r2.js';
 import config from '../config/env.js';
 import { compressImage } from '../utils/imageProcessor.js';
+import { generateEventDescription, improveEventDescription } from '../utils/aiDescription.js';
 
 /**
  * List events with media count.
@@ -399,6 +400,16 @@ export async function deleteEvent(req, res) {
       // Log but continue — best effort cleanup of R2 objects during cascade
       console.error(`Failed to delete R2 object ${media.r2Key}:`, err.message);
     }
+
+    // Also clean up the archived original (if any) and any video thumbnail.
+    if (media.originalR2Key) {
+      r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: media.originalR2Key }))
+        .catch((err) => console.error(`Failed to delete original ${media.originalR2Key}:`, err.message));
+    }
+    if (media.thumbnailR2Key) {
+      r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET_NAME, Key: media.thumbnailR2Key }))
+        .catch((err) => console.error(`Failed to delete thumbnail ${media.thumbnailR2Key}:`, err.message));
+    }
   }
 
   // Delete cover image from R2 if it was R2-hosted
@@ -424,4 +435,70 @@ export async function deleteEvent(req, res) {
     success: true,
     data: { message: 'Event and all associated data deleted successfully' }
   });
+}
+
+/**
+ * Generate or improve an event description using Cloudflare Workers AI.
+ * POST /api/events/ai/description
+ *
+ * Body:
+ *   { mode: "generate" | "improve",
+ *     title?, description?, category?, date?, tags? }
+ *
+ * Response: { success: true, data: { description: string } }
+ *
+ * Auth: admin or photographer (enforced by route middleware).
+ */
+export async function aiEventDescription(req, res) {
+  const { mode, title, description, category, date, tags } = req.body || {};
+
+  if (mode !== 'generate' && mode !== 'improve') {
+    return res.status(400).json({
+      success: false,
+      error: 'mode must be "generate" or "improve"',
+    });
+  }
+
+  const ctx = { title, category, date, tags };
+
+  try {
+    let result;
+    if (mode === 'generate') {
+      if (!title || typeof title !== 'string' || !title.trim()) {
+        return res.status(400).json({
+          success: false,
+          error: 'Title is required to generate a description',
+        });
+      }
+      result = await generateEventDescription(ctx);
+    } else {
+      result = await improveEventDescription(description, ctx);
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: { description: result },
+    });
+  } catch (err) {
+    if (err.code === 'AI_UNAVAILABLE') {
+      return res.status(503).json({
+        success: false,
+        error: 'AI service is not configured on the server',
+      });
+    }
+    if (err.code === 'AI_BAD_INPUT') {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    if (err.code === 'AI_EMPTY') {
+      return res.status(502).json({
+        success: false,
+        error: 'AI returned an empty response, please try again',
+      });
+    }
+    console.error('[ai] description generation failed:', err.message);
+    return res.status(502).json({
+      success: false,
+      error: 'AI request failed',
+    });
+  }
 }
