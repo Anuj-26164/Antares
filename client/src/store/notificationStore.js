@@ -4,7 +4,7 @@ import api from '../utils/api.js';
 /**
  * Normalise any incoming notification payload into a consistent shape.
  * Handles both full DB documents (from fetchInitial) and socket payloads
- * (from `notification` or `user-tagged` events).
+ * (from the `notification` event).
  */
 function normalise(raw) {
   if (!raw) return null;
@@ -64,20 +64,39 @@ const useNotificationStore = create((set, get) => ({
   unreadCount: 0,
 
   /**
-   * Prepend a new notification. Deduplicates by _id to prevent
-   * socket + fetchInitial double-entries.
+   * Prepend a new notification, or replace-in-place + move-to-top if an
+   * entry with the same _id already exists (aggregation: the server
+   * re-emits the same notification doc with updated actors/message).
    */
   addNotification: (raw) => {
     const n = normalise(raw);
     if (!n) return;
 
     set((state) => {
-      // Deduplicate — skip if already in list
-      if (state.list.some((existing) => existing._id === n._id)) return state;
-      return {
-        list: [n, ...state.list],
-        unreadCount: n.isRead ? state.unreadCount : state.unreadCount + 1,
-      };
+      const existingIdx = state.list.findIndex((existing) => existing._id === n._id);
+
+      if (existingIdx === -1) {
+        // Brand-new notification
+        return {
+          list: [n, ...state.list],
+          unreadCount: n.isRead ? state.unreadCount : state.unreadCount + 1,
+        };
+      }
+
+      // Existing — replace and move to top. Unread count only changes if
+      // the row transitions read state.
+      const prev = state.list[existingIdx];
+      const updated = [
+        n,
+        ...state.list.slice(0, existingIdx),
+        ...state.list.slice(existingIdx + 1),
+      ];
+
+      let unread = state.unreadCount;
+      if (prev.isRead && !n.isRead) unread += 1;
+      else if (!prev.isRead && n.isRead) unread = Math.max(0, unread - 1);
+
+      return { list: updated, unreadCount: unread };
     });
   },
 
@@ -118,9 +137,11 @@ const useNotificationStore = create((set, get) => ({
       const incoming = Array.isArray(raw) ? raw.map(normalise).filter(Boolean) : [];
 
       set((state) => {
-        // Merge: keep any socket-pushed items not yet in DB, prepend DB list
-        const existingIds = new Set(incoming.map((n) => n._id));
-        const socketOnly  = state.list.filter((n) => !existingIds.has(n._id));
+        // Merge: keep any socket-pushed items not yet in DB, prepend DB list.
+        // For ids that exist in both, the DB version wins (it's the source
+        // of truth, including any aggregation merges).
+        const incomingIds = new Set(incoming.map((n) => n._id));
+        const socketOnly  = state.list.filter((n) => !incomingIds.has(n._id));
         const merged      = [...socketOnly, ...incoming];
         const serverUnread = incoming.filter((n) => !n.isRead).length;
         return {
