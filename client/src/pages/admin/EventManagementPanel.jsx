@@ -18,6 +18,14 @@ export default function EventManagementPanel() {
   const [coverFile, setCoverFile] = useState(null);
   const [coverPreview, setCoverPreview] = useState('');
   const [saving, setSaving] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState('');
+
+  // Upload-request review modal
+  const [requestsEvent, setRequestsEvent] = useState(null); // event being reviewed
+  const [requests, setRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [requestsError, setRequestsError] = useState('');
 
   const [customTag, setCustomTag] = useState('');
 
@@ -39,6 +47,43 @@ export default function EventManagementPanel() {
     if (e.key === 'Enter') {
       e.preventDefault();
       handleCustomTagAdd();
+    }
+  };
+
+  const handleAiDescription = async (mode) => {
+    setAiError('');
+    if (mode === 'generate' && !form.title.trim()) {
+      setAiError('Add a title first so the AI has something to work with.');
+      return;
+    }
+    if (mode === 'improve' && !form.description.trim()) {
+      setAiError('There’s no description to improve yet.');
+      return;
+    }
+    setAiBusy(true);
+    try {
+      const res = await api.post('/events/ai/description', {
+        mode,
+        title: form.title,
+        description: form.description,
+        category: form.category,
+        date: form.date,
+      });
+      const next = res.data?.data?.description;
+      if (next) {
+        setForm((prev) => ({ ...prev, description: next }));
+      } else {
+        setAiError('AI returned no text. Please try again.');
+      }
+    } catch (err) {
+      const msg =
+        err.response?.data?.error ||
+        (err.response?.status === 503
+          ? 'AI is not configured on the server.'
+          : 'AI request failed. Please try again.');
+      setAiError(msg);
+    } finally {
+      setAiBusy(false);
     }
   };
 
@@ -76,6 +121,7 @@ export default function EventManagementPanel() {
     setForm({ title: '', description: '', category: '', date: '', isPublic: true, coverImage: '' });
     setCoverFile(null);
     setCoverPreview('');
+    setAiError('');
     setModalOpen(true);
   };
 
@@ -91,6 +137,7 @@ export default function EventManagementPanel() {
     });
     setCoverFile(null);
     setCoverPreview(event.coverImage || '');
+    setAiError('');
     setModalOpen(true);
   };
 
@@ -143,6 +190,53 @@ export default function EventManagementPanel() {
       fetchEvents();
     } catch {
       // silently fail
+    }
+  };
+
+  // ── Upload-request review ──────────────────────────────────────────────
+  const openRequests = async (event) => {
+    setRequestsEvent(event);
+    setRequestsLoading(true);
+    setRequestsError('');
+    try {
+      const res = await api.get(`/events/${event._id}/upload-requests`);
+      setRequests(res.data?.data || []);
+    } catch (err) {
+      setRequestsError(err.response?.data?.error || 'Failed to load requests');
+    } finally {
+      setRequestsLoading(false);
+    }
+  };
+
+  const closeRequests = () => {
+    setRequestsEvent(null);
+    setRequests([]);
+    setRequestsError('');
+  };
+
+  const decideRequest = async (userId, status) => {
+    try {
+      await api.patch(
+        `/events/${requestsEvent._id}/upload-requests/${userId}`,
+        { status }
+      );
+      // Refresh in place.
+      const res = await api.get(`/events/${requestsEvent._id}/upload-requests`);
+      setRequests(res.data?.data || []);
+    } catch (err) {
+      setRequestsError(err.response?.data?.error || 'Failed to update request');
+    }
+  };
+
+  const revokeRequest = async (userId) => {
+    try {
+      await api.delete(
+        `/events/${requestsEvent._id}/upload-requests/${userId}`
+      );
+      const res = await api.get(`/events/${requestsEvent._id}/upload-requests`);
+      setRequests(res.data?.data || []);
+    } catch (err) {
+      setRequestsError(err.response?.data?.error || 'Failed to revoke');
     }
   };
 
@@ -231,6 +325,12 @@ export default function EventManagementPanel() {
                       Media
                     </button>
                     <button
+                      onClick={() => openRequests(event)}
+                      className="text-steel dark:text-ash hover:text-ink dark:hover:text-snow text-[12px] transition-colors"
+                    >
+                      Requests
+                    </button>
+                    <button
                       onClick={() => openEdit(event)}
                       className="text-steel dark:text-ash hover:text-ink dark:hover:text-snow text-[12px] transition-colors"
                     >
@@ -259,12 +359,13 @@ export default function EventManagementPanel() {
 
       {/* Create/Edit Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-obsidian/60 backdrop-blur-sm">
-          <div className="w-full max-w-[480px] bg-white dark:bg-ink border border-gray-200 dark:border-graphite rounded-[28px] p-6 mx-4 shadow-xl">
-            <h3 className="text-ink dark:text-snow text-[18px] font-semibold mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-obsidian/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-[480px] max-h-[90vh] flex flex-col bg-white dark:bg-ink border border-gray-200 dark:border-graphite rounded-[28px] shadow-xl overflow-hidden">
+            <h3 className="shrink-0 text-ink dark:text-snow text-[18px] font-semibold px-6 pt-6 pb-4 border-b border-gray-100 dark:border-graphite/40">
               {editingEvent ? 'Edit Event' : 'Create Event'}
             </h3>
-            <div className="flex flex-col gap-3">
+            <div className="flex-1 overflow-y-auto px-6 py-5">
+              <div className="flex flex-col gap-3">
               <input
                 type="text"
                 placeholder="Title"
@@ -272,12 +373,47 @@ export default function EventManagementPanel() {
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
                 className="rounded-[14px] bg-gray-50 dark:bg-obsidian border border-gray-200 dark:border-graphite px-4 py-2.5 text-[14px] text-ink dark:text-snow placeholder:text-steel outline-none"
               />
-              <textarea
-                placeholder="Description"
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                className="rounded-[14px] bg-gray-50 dark:bg-obsidian border border-gray-200 dark:border-graphite px-4 py-2.5 text-[14px] text-ink dark:text-snow placeholder:text-steel outline-none resize-none h-[80px]"
-              />
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[13px] font-medium text-ash">Description</p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleAiDescription('generate')}
+                      disabled={aiBusy || !form.title.trim()}
+                      title={!form.title.trim() ? 'Add a title first' : 'Generate with AI'}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand/10 border border-brand/30 text-brand text-[11px] font-medium hover:bg-brand/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 3v3M12 18v3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M3 12h3M18 12h3M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
+                      </svg>
+                      {aiBusy ? 'Working…' : 'Generate'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAiDescription('improve')}
+                      disabled={aiBusy || !form.description.trim()}
+                      title={!form.description.trim() ? 'Write something first' : 'Improve with AI'}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-graphite/40 border border-graphite text-ash text-[11px] font-medium hover:text-snow hover:border-ash/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                      </svg>
+                      {aiBusy ? 'Working…' : 'Improve'}
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  placeholder="Description"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  className="w-full rounded-[14px] bg-gray-50 dark:bg-obsidian border border-gray-200 dark:border-graphite px-4 py-3 text-[14px] leading-relaxed text-ink dark:text-snow placeholder:text-steel outline-none resize-y h-[220px] min-h-[160px] max-h-[420px]"
+                />
+                {aiError && (
+                  <p className="mt-1.5 text-[12px] text-red-400">{aiError}</p>
+                )}
+              </div>
               {/* Category tag picker */}
               <div>
                 <p className="text-[13px] font-medium text-ash mb-2">Category</p>
@@ -473,8 +609,9 @@ export default function EventManagementPanel() {
                 />
                 Public event
               </label>
+              </div>
             </div>
-            <div className="flex justify-end gap-2 mt-6">
+            <div className="shrink-0 flex justify-end gap-2 px-6 py-4 border-t border-gray-100 dark:border-graphite/40 bg-white dark:bg-ink">
               <button
                 onClick={() => setModalOpen(false)}
                 className="px-4 py-2 rounded-[14px] text-steel dark:text-ash text-[13px] hover:text-ink dark:hover:text-snow transition-colors"
@@ -511,6 +648,130 @@ export default function EventManagementPanel() {
                 className="px-4 py-2 rounded-[14px] bg-red-600 text-white text-[13px] font-medium hover:bg-red-500 transition-colors"
               >
                 Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload requests review modal */}
+      {requestsEvent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-obsidian/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-[560px] max-h-[85vh] flex flex-col bg-white dark:bg-ink border border-gray-200 dark:border-graphite rounded-[28px] shadow-xl overflow-hidden">
+            <div className="shrink-0 px-6 pt-6 pb-4 border-b border-gray-100 dark:border-graphite/40">
+              <h3 className="text-ink dark:text-snow text-[18px] font-semibold">
+                Upload requests
+              </h3>
+              <p className="text-steel dark:text-ash text-[13px] mt-1 truncate">
+                {requestsEvent.title}
+              </p>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {requestsError && (
+                <p className="text-[13px] text-red-400 mb-3">{requestsError}</p>
+              )}
+
+              {requestsLoading ? (
+                <p className="text-steel dark:text-ash text-[13px] py-6 text-center">
+                  Loading…
+                </p>
+              ) : requests.length === 0 ? (
+                <p className="text-steel dark:text-ash text-[13px] py-6 text-center">
+                  No upload requests yet.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {requests.map((r) => {
+                    const u = r.userId || {};
+                    const statusColor = {
+                      pending:  'bg-amber-500/15 text-amber-400 border-amber-500/30',
+                      approved: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+                      denied:   'bg-red-500/15 text-red-400 border-red-500/30',
+                      revoked:  'bg-graphite/40 text-ash border-graphite/50',
+                    }[r.status] || 'bg-graphite/40 text-ash border-graphite/50';
+
+                    return (
+                      <li
+                        key={r._id}
+                        className="rounded-[16px] border border-gray-200 dark:border-graphite/60 p-3 flex flex-col gap-2"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            {u.avatar && (
+                              <img
+                                src={u.avatar}
+                                alt={u.name}
+                                className="w-8 h-8 rounded-full object-cover shrink-0"
+                              />
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-[13px] font-medium text-ink dark:text-snow truncate">
+                                {u.name || 'Unknown'}
+                              </p>
+                              <p className="text-[11px] text-steel dark:text-ash truncate">
+                                {u.email || '—'}
+                              </p>
+                            </div>
+                          </div>
+                          <span className={`shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-medium border ${statusColor}`}>
+                            {r.status}
+                          </span>
+                        </div>
+
+                        {r.message && (
+                          <p className="text-[12px] text-steel dark:text-ash italic">
+                            "{r.message}"
+                          </p>
+                        )}
+
+                        <div className="flex justify-end gap-2 mt-1">
+                          {r.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => decideRequest(u._id, 'denied')}
+                                className="px-3 py-1.5 rounded-full text-[12px] text-red-400 hover:bg-red-500/10 transition-colors"
+                              >
+                                Deny
+                              </button>
+                              <button
+                                onClick={() => decideRequest(u._id, 'approved')}
+                                className="px-3 py-1.5 rounded-full text-[12px] bg-brand/15 border border-brand/30 text-brand hover:bg-brand/25 transition-colors"
+                              >
+                                Approve
+                              </button>
+                            </>
+                          )}
+                          {r.status === 'approved' && (
+                            <button
+                              onClick={() => revokeRequest(u._id)}
+                              className="px-3 py-1.5 rounded-full text-[12px] text-red-400 hover:bg-red-500/10 transition-colors"
+                            >
+                              Revoke
+                            </button>
+                          )}
+                          {r.status === 'denied' && (
+                            <button
+                              onClick={() => decideRequest(u._id, 'approved')}
+                              className="px-3 py-1.5 rounded-full text-[12px] bg-brand/15 border border-brand/30 text-brand hover:bg-brand/25 transition-colors"
+                            >
+                              Approve
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            <div className="shrink-0 flex justify-end gap-2 px-6 py-4 border-t border-gray-100 dark:border-graphite/40 bg-white dark:bg-ink">
+              <button
+                onClick={closeRequests}
+                className="px-4 py-2 rounded-[14px] text-steel dark:text-ash text-[13px] hover:text-ink dark:hover:text-snow transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>
