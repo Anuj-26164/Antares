@@ -37,7 +37,9 @@ router.get('/:id/comments', optionalAuth, listComments);
 // ── Authenticated routes ─────────────────────────────────────────────────────
 
 // POST /api/media/upload/:eventId — upload (must be before /:id routes)
-router.post('/upload/:eventId', authMiddleware, roleMiddleware('admin', 'photographer', 'club_member'), uploadBulk, uploadMedia);
+// Authorization is enforced inside the controller via canUserUploadToEvent
+// so we can also allow viewers who hold an approved per-event grant.
+router.post('/upload/:eventId', authMiddleware, uploadBulk, uploadMedia);
 
 // GET /api/media/:id — get single media item with signed URL if private
 router.get('/:id', optionalAuth, getMedia);
