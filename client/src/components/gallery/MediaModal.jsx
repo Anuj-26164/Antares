@@ -6,6 +6,7 @@ import useMediaStore from '../../store/mediaStore.js';
 import useAuthStore from '../../store/authStore.js';
 import useMediaInteractionStore from '../../store/mediaInteractionStore.js';
 import api from '../../utils/api.js';
+import { relativeTime } from '../../utils/formatters.js';
 import VideoPlayer from './VideoPlayer.jsx';
 
 export default function MediaModal({ media, onClose, onFavourite }) {
@@ -279,11 +280,41 @@ export default function MediaModal({ media, onClose, onFavourite }) {
           <div className="w-full lg:w-[320px] flex flex-col border-l border-graphite">
             {/* Header */}
             <div className="px-5 py-4 border-b border-graphite">
-              <h3 className="text-snow text-[16px] font-semibold truncate">
-                {media.title || 'Untitled'}
-              </h3>
+              {media.title && (
+                <h3 className="text-snow text-[16px] font-semibold truncate">
+                  {media.title}
+                </h3>
+              )}
               {media.uploadedBy?.name && (
-                <p className="text-ash text-[12px] mt-0.5">by {media.uploadedBy.name}</p>
+                <p className="text-ash text-[12px] mt-0.5">
+                  Uploaded by {media.uploadedBy.name}
+                  {media.createdAt && (
+                    <>
+                      {' · '}
+                      <span title={new Date(media.createdAt).toLocaleString()}>
+                        {relativeTime(media.createdAt)}
+                      </span>
+                    </>
+                  )}
+                </p>
+              )}
+              {media.caption && (
+                <p className="text-snow/85 text-[13px] mt-2.5 leading-relaxed whitespace-pre-line">
+                  {media.caption}
+                </p>
+              )}
+              {Array.isArray(media.tags) && media.tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2.5">
+                  {media.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="px-2 py-0.5 rounded-full bg-brand/10 border border-brand/30 text-brand text-[10px] font-medium tracking-wide capitalize"
+                      title="Auto-generated tag"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
 
