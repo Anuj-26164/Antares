@@ -6,7 +6,7 @@ Event media management platform with authentication, gallery uploads, real-time 
 
 - **Client:** React + Vite, Zustand, Tailwind, Framer Motion, Playwright (E2E)
 - **Server:** Node.js + Express, MongoDB (Mongoose), Socket.IO, Passport (Google OAuth + local), Cloudflare R2 storage, Sharp / fluent-ffmpeg for media processing
-- **AI:** Google Gemini (`@google/genai`)
+- **AI:** Cloudflare Workers AI (default model `@cf/meta/llama-3.3-70b-instruct-fp8-fast`)
 
 ## Project structure
 
@@ -23,7 +23,7 @@ server/   # Express API, Socket.IO, MongoDB models
 - A MongoDB cluster (Atlas or local)
 - Cloudflare R2 bucket (or S3-compatible store)
 - Google OAuth credentials
-- Google Gemini API key (optional, for AI features)
+- Cloudflare account ID + a Workers AI API token (optional, for AI-assisted event descriptions)
 
 ## Setup
 
@@ -42,7 +42,7 @@ Copy the example env and fill in real values:
 cp server/.env.example server/.env
 ```
 
-Edit `server/.env` with your MongoDB URI, JWT secrets, Google OAuth credentials, R2 keys, and Gemini API key.
+Edit `server/.env` with your MongoDB URI, JWT secrets, Google OAuth credentials, R2 keys, and Cloudflare Workers AI credentials (`CF_ACCOUNT_ID`, `CF_AI_TOKEN`).
 
 ### 3. Run
 
