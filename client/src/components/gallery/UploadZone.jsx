@@ -30,6 +30,7 @@ export default function UploadZone({ eventId, onUploadComplete }) {
       name: file.name,
       size: file.size,
       isVideo: file.type.startsWith('video/'),
+      caption: '',
     }));
     setPreviews(prev => [...prev, ...newPreviews]);
   }, []);
@@ -49,6 +50,10 @@ export default function UploadZone({ eventId, onUploadComplete }) {
     });
   };
 
+  const setCaption = (index, value) => {
+    setPreviews((prev) => prev.map((p, i) => (i === index ? { ...p, caption: value.slice(0, 500) } : p)));
+  };
+
   const handleUpload = async () => {
     if (previews.length === 0 || !eventId) return;
     setUploading(true);
@@ -58,6 +63,9 @@ export default function UploadZone({ eventId, onUploadComplete }) {
     try {
       const formData = new FormData();
       previews.forEach(({ file }) => formData.append('files', file));
+      // Per-file captions, aligned by index. Empty string = "let AI fill it".
+      const captions = previews.map((p) => (p.caption || '').trim());
+      formData.append('captions', JSON.stringify(captions));
 
       await api.post(`/media/upload/${eventId}`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -123,44 +131,61 @@ export default function UploadZone({ eventId, onUploadComplete }) {
               </button>
             </div>
 
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            <div className="flex flex-col gap-2.5">
               {previews.map((p, i) => (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  className="relative group rounded-[12px] overflow-hidden bg-graphite/30 aspect-square cursor-pointer"
-                  onClick={() => setLightboxIndex(i)}
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="flex items-start gap-3 p-2 rounded-[14px] bg-graphite/20 border border-graphite/40"
                 >
-                  {p.isVideo ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-1">
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" strokeWidth="1.5">
-                        <polygon points="5 3 19 12 5 21 5 3"/>
-                      </svg>
-                      <span className="text-ash text-[10px] truncate px-1 max-w-full">{p.name}</span>
-                    </div>
-                  ) : (
-                    <img
-                      src={p.preview}
-                      alt={p.name}
-                      className="w-full h-full object-cover"
-                    />
-                  )}
-
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1">
-                    <p className="text-white text-[10px] text-center truncate w-full px-1">{p.name}</p>
-                    <p className="text-white/60 text-[9px]">{formatBytes(p.size)}</p>
+                  {/* Thumbnail */}
+                  <div
+                    className="relative shrink-0 w-20 h-20 rounded-[10px] overflow-hidden bg-graphite/40 cursor-pointer group"
+                    onClick={() => setLightboxIndex(i)}
+                  >
+                    {p.isVideo ? (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" strokeWidth="1.5">
+                          <polygon points="5 3 19 12 5 21 5 3"/>
+                        </svg>
+                      </div>
+                    ) : (
+                      <img
+                        src={p.preview}
+                        alt={p.name}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
 
-                  {/* Remove button */}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); removeFile(i); }}
-                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white text-[11px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80 z-10"
-                  >
-                    ×
-                  </button>
+                  {/* Caption + meta */}
+                  <div className="flex-1 min-w-0 flex flex-col gap-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-snow text-[12px] font-medium truncate">{p.name}</p>
+                      <button
+                        onClick={() => removeFile(i)}
+                        className="text-ash text-[11px] hover:text-red-400 transition-colors shrink-0"
+                        aria-label="Remove file"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <textarea
+                      value={p.caption}
+                      onChange={(e) => setCaption(i, e.target.value)}
+                      placeholder={p.isVideo ? 'Add a caption (optional)' : 'Add a caption — leave blank for an AI-generated one'}
+                      rows={2}
+                      maxLength={500}
+                      className="w-full resize-none px-2.5 py-1.5 rounded-[8px] bg-ink/70 border border-graphite/60 text-snow text-[12px] placeholder:text-steel focus:outline-none focus:border-brand/40"
+                    />
+                    <div className="flex items-center justify-between text-[10px] text-steel">
+                      <span>{formatBytes(p.size)}</span>
+                      <span>{p.caption.length}/500</span>
+                    </div>
+                  </div>
                 </motion.div>
               ))}
             </div>
