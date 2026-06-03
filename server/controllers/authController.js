@@ -9,6 +9,7 @@ import User from '../models/User.js';
 import {
   generateAccessToken,
   generateRefreshToken,
+  verifyAccessToken,
   verifyRefreshToken,
   setAuthCookies,
   clearAuthCookies,
