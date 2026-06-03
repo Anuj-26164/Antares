@@ -387,7 +387,7 @@ export async function listMedia(req, res, next) {
     const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
     const eventIdFilter = req.query.eventId;
 
-    const userRole = req.user?.role;
+    const userRole = req.user.role;
     const canViewPrivate = ['admin', 'photographer', 'club_member'].includes(userRole);
 
     // Build filter
@@ -484,14 +484,14 @@ export async function listMedia(req, res, next) {
     }
 
     // Add isFavourited field for the current user
-    const userId = req.user?._id?.toString();
+    const userId = req.user._id.toString();
     const items = data.map((item) => {
       const obj = item.toObject ? item.toObject() : item;
       return {
         ...obj,
-        isFavourited: userId
-          ? (obj.favouritedBy || []).some((id) => id.toString() === userId)
-          : false,
+        isFavourited: (obj.favouritedBy || []).some(
+          (id) => id.toString() === userId
+        ),
       };
     });
 
@@ -634,15 +634,6 @@ export async function serveThumbnail(req, res, next) {
     const { id } = req.params;
     const media = await Media.findById(id);
     if (!media) return res.status(404).json({ success: false, error: 'Media not found.' });
-
-    // Private media: require authentication and an authorized role
-    if (!media.isPublic) {
-      if (!req.user) {
-        return res.status(401).json({ success: false, error: 'Authentication required.' });
-      }
-      const canAccess = ['admin', 'photographer', 'club_member'].includes(req.user.role);
-      if (!canAccess) return res.status(403).json({ success: false, error: 'Insufficient permissions.' });
-    }
 
     // For photos, just serve the image directly
     if (media.type !== 'video') {
