@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import api from '../utils/api.js';
 import useAuthStore from '../store/authStore.js';
+import useMediaInteractionStore from '../store/mediaInteractionStore.js';
 import GalleryGrid from '../components/gallery/GalleryGrid.jsx';
 import MediaModal from '../components/gallery/MediaModal.jsx';
 
@@ -16,6 +17,10 @@ export default function GalleryPage() {
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [sortBy, setSortBy] = useState('uploadDate');
   const sentinelRef = useRef(null);
+
+  // Stable ref to the interaction store so handleFavourite can read the
+  // confirmed state without stale-closure issues
+  const useMediaInteractionStoreRef = useRef(useMediaInteractionStore);
 
   const fetchMedia = useCallback(async (pageNum, reset = false) => {
     if (reset) {
@@ -72,10 +77,19 @@ export default function GalleryPage() {
   }, [hasMore, loading, loadingMore, page, fetchMedia]);
 
   const handleFavourite = (id) => {
+    // Sync the local media array with what the interaction store confirmed.
+    // The store is the source of truth after a toggle; we just mirror it here
+    // so the grid card also updates.
+    const storeEntry = useMediaInteractionStoreRef.current?.getState?.()?.byId?.[id];
+    const newFavourited = storeEntry ? storeEntry.favourited : undefined;
     setMedia((prev) =>
-      prev.map((m) =>
-        m._id === id ? { ...m, isFavourited: !m.isFavourited } : m
-      )
+      prev.map((m) => {
+        if (m._id !== id) return m;
+        // If we have the authoritative value from the store, use it.
+        // Otherwise fall back to a toggle (handles edge case where store has no entry yet).
+        const next = typeof newFavourited === 'boolean' ? newFavourited : !m.isFavourited;
+        return { ...m, isFavourited: next };
+      })
     );
   };
 

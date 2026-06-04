@@ -38,6 +38,34 @@ export default function MediaModal({ media, onClose, onFavourite }) {
   const toggleFavourite = useMediaInteractionStore((state) => state.toggleFavourite);
   const addCommentToStore = useMediaInteractionStore((state) => state.addComment);
 
+  // Seed the interaction store on mount so like state is correct even on
+  // first open (before any toggle has been made by this session).
+  useEffect(() => {
+    if (!media?._id) return;
+    const existing = useMediaInteractionStore.getState().byId[media._id];
+    // Only seed when there is no entry yet — don't overwrite a live optimistic state
+    if (existing && typeof existing.favourited === 'boolean') return;
+
+    const favBy = Array.isArray(media?.favouritedBy) ? media.favouritedBy : [];
+    const userId = user?._id?.toString();
+    const seedFavourited = userId && favBy.length > 0
+      ? favBy.some(id => (id?._id || id)?.toString() === userId)
+      : (media?.isFavourited || false);
+    const seedCount = favBy.length || media?.likes || 0;
+
+    useMediaInteractionStore.setState((state) => ({
+      byId: {
+        ...state.byId,
+        [media._id]: {
+          favourited: seedFavourited,
+          favouriteCount: seedCount,
+          comments: existing?.comments ?? [],
+        },
+      },
+    }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [media?._id]);
+
   // Derive like state: prefer interaction store (when known), fall back to media props
   const liked = (interactionData && typeof interactionData.favourited === 'boolean')
     ? interactionData.favourited
@@ -195,9 +223,27 @@ export default function MediaModal({ media, onClose, onFavourite }) {
       await api.post(`/media/${media._id}/tag`, { userIds: tagSelected.map((u) => u._id) });
       setTagSuccess(true);
       setTagSelected([]);
-      // Re-fetch comments so the auto-generated tag comment appears in localComments
+      // Re-fetch comments so the auto-generated tag comment appears
       api.get(`/media/${media._id}/comments`)
-        .then((res) => setLocalComments(res.data.data || []))
+        .then((res) => {
+          const fresh = res.data.data || [];
+          setLocalComments(fresh);
+          // Also update the interaction store so the tag comment is visible
+          // even when storeComments is being used as the primary source
+          useMediaInteractionStore.setState((state) => {
+            const existing = state.byId[media._id];
+            return {
+              byId: {
+                ...state.byId,
+                [media._id]: {
+                  favourited: existing?.favourited ?? false,
+                  favouriteCount: existing?.favouriteCount ?? likeCount,
+                  comments: fresh,
+                },
+              },
+            };
+          });
+        })
         .catch(() => {});
       setTimeout(() => { setTagSuccess(false); setTagOpen(false); }, 1500);
     } catch {
