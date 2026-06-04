@@ -111,7 +111,7 @@ export default function HeroSection() {
           transition={{ duration: 0.5, ease: 'easeOut' }}
           className="flex flex-wrap gap-2"
         >
-          {['AI-powered search', 'Watermarked downloads', 'Role-based access', 'Cloudflare R2 storage'].map((feat) => (
+          {['Watermarked downloads', 'Role-based access', 'Cloudflare R2 storage'].map((feat) => (
             <span
               key={feat}
               className="inline-flex items-center gap-1.5 rounded-full bg-fog dark:bg-graphite/40 px-3 py-1 text-[12px] font-medium text-steel dark:text-ash"
