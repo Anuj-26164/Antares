@@ -86,6 +86,26 @@ Six sections behind the `admin` role guard:
 
 ---
 
+## Demo Admin Account
+
+A default admin account is pre-seeded for testing:
+
+| Field | Value |
+|---|---|
+| Email | `test@test.com` |
+| Password | `test123` |
+| Role | `admin` |
+
+Log in at `/login` with these credentials, then navigate to `/admin` for the admin dashboard.
+
+To re-create this account on a fresh database:
+
+```bash
+node server/scripts/seedAdmin.js
+```
+
+---
+
 ## Admin Access
 
 The admin dashboard (`/admin`) requires the `admin` role. To promote a registered user:
