@@ -157,7 +157,7 @@ You should see:
 | Image Processing | Sharp (compress, watermark, avatar) |
 | Video Processing | FFmpeg via fluent-ffmpeg |
 | AI | Cloudflare Workers AI (Llama 3.3 70B + Llama 3.2 11B Vision) |
-| Testing | Vitest (server), Playwright (E2E) |
+| Deployment | Railway (server), Vercel (client) |
 
 ---
 
@@ -205,14 +205,12 @@ cd client && npm run dev
 |---|---|
 | `npm run dev` | Start with nodemon |
 | `npm start` | Production start |
-| `npm test` | Run Vitest suite |
-| `npm run test:coverage` | Coverage report |
 
 ### Client
 | Command | Description |
 |---|---|
 | `npm run dev` | Vite dev server |
 | `npm run build` | Production build |
-| `npm run test:e2e` | Playwright E2E tests |
+| `npm run preview` | Preview production build |
 
 ---
