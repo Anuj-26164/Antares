@@ -93,7 +93,7 @@ A default admin account is pre-seeded for testing:
 | Field | Value |
 |---|---|
 | Email | `test@test.com` |
-| Password | `test123` |
+| Password | `test1234` |
 | Role | `admin` |
 
 Log in at `/login` with these credentials, then navigate to `/admin` for the admin dashboard.

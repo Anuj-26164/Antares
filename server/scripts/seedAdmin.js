@@ -23,7 +23,7 @@ if (!process.env.MONGO_URI) {
 }
 
 const ADMIN_EMAIL    = 'test@test.com';
-const ADMIN_PASSWORD = 'test123';
+const ADMIN_PASSWORD = 'test1234';
 const ADMIN_NAME     = 'Admin';
 
 await mongoose.connect(process.env.MONGO_URI);
@@ -32,12 +32,13 @@ const db = mongoose.connection.db;
 const existing = await db.collection('users').findOne({ email: ADMIN_EMAIL });
 
 if (existing) {
-  // Already exists — just make sure the role is admin
+  // Already exists — update role and password
+  const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 12);
   await db.collection('users').updateOne(
     { email: ADMIN_EMAIL },
-    { $set: { role: 'admin' } }
+    { $set: { role: 'admin', password: hashedPassword } }
   );
-  console.log(`ℹ️   "${ADMIN_EMAIL}" already exists — role set to admin.`);
+  console.log(`ℹ️   "${ADMIN_EMAIL}" already exists — role set to admin, password updated.`);
 } else {
   const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 12);
   await db.collection('users').insertOne({
