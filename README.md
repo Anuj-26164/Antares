@@ -216,8 +216,3 @@ cd client && npm run dev
 | `npm run test:e2e` | Playwright E2E tests |
 
 ---
-
-## Notes
-
-- Never commit `server/.env` — it's gitignored, but double-check before pushing.
-- One-off migration scripts live in `server/scripts/` — read before running.
