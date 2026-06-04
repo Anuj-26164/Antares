@@ -36,6 +36,7 @@ app.use(passport.initialize());
 const allowedOrigins = [
   "http://localhost:5173",
   "https://antaresevents.netlify.app",
+  "https://antaresevents.vercel.app",
 ];
 
 app.use(

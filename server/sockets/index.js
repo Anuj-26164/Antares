@@ -71,9 +71,16 @@ function cleanupThrottleMap() {
  * @returns {Server} The Socket.IO server instance
  */
 export function initSocketServer(httpServer, config) {
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'https://antaresevents.netlify.app',
+    'https://antaresevents.vercel.app',
+    ...(config.CLIENT_URL ? [config.CLIENT_URL] : []),
+  ];
+
   io = new Server(httpServer, {
     cors: {
-      origin: config.CLIENT_URL,
+      origin: allowedOrigins,
       credentials: true,
       methods: ['GET', 'POST'],
     },
