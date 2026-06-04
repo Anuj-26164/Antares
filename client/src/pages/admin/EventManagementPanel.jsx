@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import api from '../../utils/api.js';
 import { SkeletonTable } from '../../components/common/Skeleton.jsx';
@@ -358,8 +357,8 @@ export default function EventManagementPanel() {
         </table>
       </div>
 
-      {/* Create/Edit Modal — rendered via portal so it escapes the admin layout's overflow container */}
-      {modalOpen && createPortal(
+      {/* Create/Edit Modal */}
+      {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-obsidian/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-[480px] max-h-[90vh] flex flex-col bg-white dark:bg-ink border border-gray-200 dark:border-graphite rounded-[28px] shadow-xl overflow-hidden">
             <h3 className="shrink-0 text-ink dark:text-snow text-[18px] font-semibold px-6 pt-6 pb-4 border-b border-gray-100 dark:border-graphite/40">
@@ -629,10 +628,10 @@ export default function EventManagementPanel() {
             </div>
           </div>
         </div>
-      , document.body)}
+      )}
 
-      {/* Delete confirmation — portal so it escapes the admin layout overflow */}
-      {confirmDelete && createPortal(
+      {/* Delete confirmation */}
+      {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-obsidian/60 backdrop-blur-sm">
           <div className="w-full max-w-[360px] bg-white dark:bg-ink border border-gray-200 dark:border-graphite rounded-[28px] p-6 mx-4 shadow-xl">
             <h3 className="text-ink dark:text-snow text-[16px] font-semibold mb-2">Delete Event</h3>
@@ -653,10 +652,10 @@ export default function EventManagementPanel() {
             </div>
           </div>
         </div>
-      , document.body)}
+      )}
 
-      {/* Upload requests review modal — portal so it escapes the admin layout overflow */}
-      {requestsEvent && createPortal(
+      {/* Upload requests review modal */}
+      {requestsEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-obsidian/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-[560px] max-h-[85vh] flex flex-col bg-white dark:bg-ink border border-gray-200 dark:border-graphite rounded-[28px] shadow-xl overflow-hidden">
             <div className="shrink-0 px-6 pt-6 pb-4 border-b border-gray-100 dark:border-graphite/40">
@@ -777,7 +776,7 @@ export default function EventManagementPanel() {
             </div>
           </div>
         </div>
-      , document.body)}
+      )}
     </motion.div>
   );
 }
