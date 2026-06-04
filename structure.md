@@ -6,15 +6,6 @@ Full-stack event media platform built with React (Vite) + Express + MongoDB + Cl
 
 ```
 ANTARES2/
-├── .gitignore
-├── .kiro/                          # Kiro specs
-│   └── specs/
-│       ├── antares-event-media-platform/
-│       ├── dark-mode-admin-dashboard/
-│       ├── event-media-architecture-refactor/
-│       └── persistent-profile-picture-upload/
-├── .vscode/
-│   └── settings.json
 ├── client/                         # React frontend (Vite + Tailwind)
 │   ├── index.html
 │   ├── package.json
@@ -95,7 +86,6 @@ ANTARES2/
 │           ├── avatar.js           # getUserAvatar utility
 │           └── formatters.js       # Display formatters
 └── server/                         # Express backend
-    ├── .env                        # Environment variables
     ├── index.js                    # Server entry point
     ├── package.json
     ├── fix-urls.js                 # Utility script
