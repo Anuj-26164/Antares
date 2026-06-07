@@ -284,7 +284,7 @@ export default function MediaModal({ media, onClose, onFavourite }) {
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="bg-ink border border-graphite rounded-[28px] w-full max-w-[960px] max-h-[90vh] overflow-hidden flex flex-col lg:flex-row"
+          className="bg-ink border border-graphite rounded-[28px] w-full max-w-[960px] max-h-[90vh] min-h-[420px] overflow-hidden flex flex-col lg:flex-row"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Media display */}
@@ -323,7 +323,7 @@ export default function MediaModal({ media, onClose, onFavourite }) {
           </div>
 
           {/* Sidebar */}
-          <div className="w-full lg:w-[320px] flex flex-col border-l border-graphite">
+          <div className="w-full lg:w-[320px] flex flex-col border-l border-graphite overflow-hidden">
             {/* Header */}
             <div className="px-5 py-4 border-b border-graphite">
               {media.title && (
@@ -365,7 +365,7 @@ export default function MediaModal({ media, onClose, onFavourite }) {
             </div>
 
             {/* Actions */}
-            <div className="px-5 py-3 border-b border-graphite flex items-center gap-4 overflow-visible">
+            <div className="px-5 py-3 border-b border-graphite flex items-center gap-4 overflow-x-auto no-scrollbar">
               {/* Like button with count */}
               <button
                 onClick={handleLike}
@@ -515,7 +515,7 @@ export default function MediaModal({ media, onClose, onFavourite }) {
             )}
 
             {/* Comments list */}
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="flex-1 overflow-y-auto px-5 py-4 min-h-[80px] brand-scrollbar">
               <p className="text-[11px] text-ash font-semibold uppercase tracking-wider mb-3">
                 Comments {comments.length > 0 && `(${comments.length})`}
               </p>
@@ -548,14 +548,29 @@ export default function MediaModal({ media, onClose, onFavourite }) {
                     placeholder="Add a comment..."
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
-                    className="flex-1 bg-obsidian border border-graphite rounded-full px-4 py-2 text-[13px] text-snow placeholder:text-steel outline-none focus:border-brand/50 transition-colors"
+                    className="flex-1 bg-obsidian border border-graphite rounded-full px-4 py-2 text-[13px] text-snow placeholder:text-ash outline-none focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-transparent transition-all"
                   />
                   <button
                     type="submit"
                     disabled={submitting || !comment.trim()}
-                    className="px-4 py-2 rounded-full bg-brand text-obsidian text-[13px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="shrink-0 px-4 py-2 rounded-full bg-brand text-obsidian text-[13px] font-semibold hover:opacity-90 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 min-w-[52px]"
                   >
-                    {submitting ? '...' : 'Post'}
+                    {submitting ? (
+                      <svg
+                        className="animate-spin"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      >
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                      </svg>
+                    ) : (
+                      'Post'
+                    )}
                   </button>
                 </form>
               ) : (
