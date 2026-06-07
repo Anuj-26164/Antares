@@ -254,22 +254,25 @@ export default function MediaManagementPanel() {
             setUploadFiles([]);
             setUploadModalOpen(true);
           }}
-          className="px-4 py-2.5 rounded-[14px] bg-brand text-obsidian text-[13px] font-semibold hover:opacity-90 transition-opacity"
+          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-[14px] bg-brand text-obsidian text-[13px] font-semibold hover:opacity-90 active:scale-95 transition-all shadow-[0_0_16px_rgba(96,165,250,0.25)]"
         >
-          + Upload Media
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Upload Media
         </button>
 
         {/* View toggle */}
         <div className="ml-auto flex items-center gap-1 bg-snow dark:bg-ink border border-fog dark:border-graphite rounded-[14px] p-1">
           <button
             onClick={() => setViewMode('grid')}
-            className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${viewMode === 'grid' ? 'bg-fog dark:bg-graphite text-ink dark:text-snow' : 'text-steel dark:text-ash'}`}
+            className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-all active:scale-95 ${viewMode === 'grid' ? 'bg-fog dark:bg-graphite text-ink dark:text-snow' : 'text-steel dark:text-ash hover:text-snow hover:bg-graphite/30'}`}
           >
             Grid
           </button>
           <button
             onClick={() => setViewMode('table')}
-            className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-colors ${viewMode === 'table' ? 'bg-fog dark:bg-graphite text-ink dark:text-snow' : 'text-steel dark:text-ash'}`}
+            className={`px-3 py-1.5 rounded-[10px] text-[12px] font-medium transition-all active:scale-95 ${viewMode === 'table' ? 'bg-fog dark:bg-graphite text-ink dark:text-snow' : 'text-steel dark:text-ash hover:text-snow hover:bg-graphite/30'}`}
           >
             Table
           </button>
@@ -278,29 +281,29 @@ export default function MediaManagementPanel() {
 
       {/* Bulk actions bar */}
       {selected.length > 0 && (
-        <div className="flex items-center gap-3 mb-4 px-4 py-3 bg-white dark:bg-ink border border-gray-200 dark:border-graphite rounded-[14px]">
+        <div className="flex items-center gap-2 mb-4 px-4 py-3 bg-white dark:bg-ink border border-gray-200 dark:border-graphite rounded-[14px]">
           <span className="text-ink dark:text-snow text-[13px] font-medium">{selected.length} selected</span>
           <button
             onClick={() => setConfirmBulk('delete')}
-            className="px-3 py-1.5 rounded-[10px] bg-red-600 text-white text-[12px] font-medium hover:bg-red-500 transition-colors"
+            className="px-3 py-1.5 rounded-[8px] bg-red-600 text-white text-[12px] font-semibold hover:bg-red-500 active:scale-95 transition-all"
           >
             Delete
           </button>
           <button
             onClick={() => setConfirmBulk('public')}
-            className="px-3 py-1.5 rounded-[10px] bg-gray-100 dark:bg-graphite text-ink dark:text-snow text-[12px] font-medium hover:opacity-80 transition-opacity"
+            className="px-3 py-1.5 rounded-[8px] bg-graphite/60 text-snow text-[12px] font-medium hover:bg-graphite active:scale-95 transition-all"
           >
             Make Public
           </button>
           <button
             onClick={() => setConfirmBulk('private')}
-            className="px-3 py-1.5 rounded-[10px] bg-gray-100 dark:bg-graphite text-ink dark:text-snow text-[12px] font-medium hover:opacity-80 transition-opacity"
+            className="px-3 py-1.5 rounded-[8px] bg-graphite/60 text-snow text-[12px] font-medium hover:bg-graphite active:scale-95 transition-all"
           >
             Make Private
           </button>
           <button
             onClick={() => setSelected([])}
-            className="ml-auto text-steel dark:text-ash text-[12px] hover:text-ink dark:hover:text-snow transition-colors"
+            className="ml-auto px-3 py-1.5 rounded-[8px] text-ash text-[12px] font-medium hover:text-snow hover:bg-graphite/40 active:scale-95 transition-all"
           >
             Clear
           </button>
@@ -473,7 +476,7 @@ export default function MediaManagementPanel() {
 
       {/* Upload media modal */}
       {uploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className="w-full max-w-[480px] bg-ink border border-graphite rounded-[28px] p-6 mx-4 shadow-xl">
             <h3 className="text-snow text-[18px] font-semibold mb-4">Upload Media</h3>
             <div className="flex flex-col gap-4">
@@ -573,16 +576,16 @@ export default function MediaManagementPanel() {
             <div className="flex justify-end gap-2 mt-6">
               <button
                 onClick={() => { uploadPreviews.forEach(p => URL.revokeObjectURL(p.preview)); setUploadModalOpen(false); setUploadFiles([]); setUploadPreviews([]); }}
-                className="px-4 py-2 rounded-[14px] text-ash text-[13px] hover:text-snow transition-colors"
+                className="px-4 py-2 rounded-[12px] text-ash text-[13px] font-medium hover:text-snow hover:bg-graphite/40 active:scale-95 transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpload}
                 disabled={uploading || !uploadEventId || uploadFiles.length === 0}
-                className="px-5 py-2 rounded-[14px] bg-brand text-obsidian text-[13px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center gap-2 min-w-[80px] px-5 py-2 rounded-[12px] bg-brand text-obsidian text-[13px] font-semibold hover:opacity-90 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {uploading ? `Uploading ${uploadProgress}%...` : 'Upload'}
+                {uploading ? `${uploadProgress}%` : 'Upload'}
               </button>
             </div>
             {uploading && (
@@ -622,7 +625,7 @@ export default function MediaManagementPanel() {
 
       {/* Bulk action confirmation modal */}
       {confirmBulk && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-obsidian/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-md">
           <div className="w-full max-w-[360px] bg-white dark:bg-ink border border-gray-200 dark:border-graphite rounded-[28px] p-6 mx-4 shadow-xl">
             <h3 className="text-ink dark:text-snow text-[16px] font-semibold mb-2">Confirm Action</h3>
             <p className="text-steel dark:text-ash text-[13px] mb-6">
@@ -633,14 +636,14 @@ export default function MediaManagementPanel() {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setConfirmBulk(null)}
-                className="px-4 py-2 rounded-[14px] text-steel dark:text-ash text-[13px] hover:text-ink dark:hover:text-snow transition-colors"
+                className="px-4 py-2 rounded-[12px] text-ash text-[13px] font-medium hover:text-snow hover:bg-graphite/40 active:scale-95 transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleBulkAction(confirmBulk)}
-                className={`px-4 py-2 rounded-[14px] text-white text-[13px] font-medium transition-colors ${
-                  confirmBulk === 'delete' ? 'bg-red-600 hover:bg-red-500' : 'bg-ink dark:bg-snow dark:text-ink hover:opacity-90'
+                className={`px-4 py-2 rounded-[12px] text-white text-[13px] font-semibold active:scale-95 transition-all ${
+                  confirmBulk === 'delete' ? 'bg-red-600 hover:bg-red-500' : 'bg-brand text-obsidian hover:opacity-90'
                 }`}
               >
                 Confirm

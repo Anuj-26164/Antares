@@ -13,6 +13,7 @@ export async function listNotifications(req, res, next) {
       .limit(50)
       .populate('relatedUser', 'name avatar')
       .populate('relatedMedia', '_id type eventId')
+      .populate('relatedEvent', '_id title')
       .lean();
 
     return res.status(200).json({

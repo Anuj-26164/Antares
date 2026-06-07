@@ -270,9 +270,12 @@ export default function EventManagementPanel() {
         </select>
         <button
           onClick={openCreate}
-          className="ml-auto px-4 py-2.5 rounded-[14px] bg-ink dark:bg-snow text-snow dark:text-ink text-[13px] font-medium hover:opacity-90 transition-opacity"
+          className="ml-auto inline-flex items-center gap-1.5 px-4 py-2.5 rounded-[14px] bg-brand text-obsidian text-[13px] font-semibold hover:opacity-90 active:scale-95 transition-all shadow-[0_0_16px_rgba(96,165,250,0.25)]"
         >
-          + Create Event
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          Create Event
         </button>
       </div>
 
@@ -317,28 +320,28 @@ export default function EventManagementPanel() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => navigate(`/admin/media?event=${event._id}`)}
-                      className="text-steel dark:text-ash hover:text-ink dark:hover:text-snow text-[12px] transition-colors"
+                      className="px-2.5 py-1 rounded-[8px] text-ash text-[12px] font-medium hover:text-snow hover:bg-graphite/50 active:scale-95 transition-all"
                     >
                       Media
                     </button>
                     <button
                       onClick={() => openRequests(event)}
-                      className="text-steel dark:text-ash hover:text-ink dark:hover:text-snow text-[12px] transition-colors"
+                      className="px-2.5 py-1 rounded-[8px] text-ash text-[12px] font-medium hover:text-snow hover:bg-graphite/50 active:scale-95 transition-all"
                     >
                       Requests
                     </button>
                     <button
                       onClick={() => openEdit(event)}
-                      className="text-steel dark:text-ash hover:text-ink dark:hover:text-snow text-[12px] transition-colors"
+                      className="px-2.5 py-1 rounded-[8px] text-brand text-[12px] font-medium hover:text-snow hover:bg-brand/15 active:scale-95 transition-all"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => setConfirmDelete(event._id)}
-                      className="text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 text-[12px] transition-colors"
+                      className="px-2.5 py-1 rounded-[8px] text-red-400 text-[12px] font-medium hover:text-red-300 hover:bg-red-500/10 active:scale-95 transition-all"
                     >
                       Delete
                     </button>
@@ -359,104 +362,153 @@ export default function EventManagementPanel() {
 
       {/* Create/Edit Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-obsidian/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-[480px] max-h-[90vh] flex flex-col bg-white dark:bg-ink border border-gray-200 dark:border-graphite rounded-[28px] shadow-xl overflow-hidden">
-            <h3 className="shrink-0 text-ink dark:text-snow text-[18px] font-semibold px-6 pt-6 pb-4 border-b border-gray-100 dark:border-graphite/40">
-              {editingEvent ? 'Edit Event' : 'Create Event'}
-            </h3>
-            <div className="flex-1 overflow-y-auto px-6 py-5">
-              <div className="flex flex-col gap-3">
-              <input
-                type="text"
-                placeholder="Title"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className="rounded-[14px] bg-gray-50 dark:bg-obsidian border border-gray-200 dark:border-graphite px-4 py-2.5 text-[14px] text-ink dark:text-snow placeholder:text-steel outline-none"
-              />
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
+          <div className="w-full max-w-[500px] max-h-[92vh] flex flex-col bg-ink border border-graphite/60 rounded-[28px] shadow-2xl overflow-hidden">
+
+            {/* ── Modal header with gradient accent ── */}
+            <div className="shrink-0 relative overflow-hidden px-6 pt-6 pb-5 border-b border-graphite/40">
+              <div className="absolute inset-0 bg-gradient-to-br from-brand/8 via-transparent to-transparent pointer-events-none" />
+              <div className="relative flex items-center gap-3">
+                <div className="w-9 h-9 rounded-[12px] bg-brand/15 border border-brand/30 flex items-center justify-center shrink-0">
+                  {editingEvent ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="18" rx="2"/>
+                      <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                      <line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/>
+                    </svg>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-snow text-[17px] font-semibold leading-tight">
+                    {editingEvent ? 'Edit Event' : 'Create Event'}
+                  </h3>
+                  <p className="text-ash text-[12px] mt-0.5">
+                    {editingEvent ? 'Update event details below' : 'Fill in the details to publish a new event'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Scrollable body ── */}
+            <div className="flex-1 overflow-y-auto brand-scrollbar px-6 py-5 space-y-5">
+
+              {/* Title */}
+              <div>
+                <label className="block text-[12px] font-semibold text-ash uppercase tracking-wider mb-1.5">
+                  Event Title <span className="text-red-400">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Annual Hackathon 2025"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className="w-full rounded-[14px] bg-obsidian border border-graphite px-4 py-3 text-[14px] text-snow placeholder:text-steel/60 outline-none focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-transparent transition-all"
+                />
+              </div>
+
+              {/* Description */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[13px] font-medium text-ash">Description</p>
+                  <label className="block text-[12px] font-semibold text-ash uppercase tracking-wider">
+                    Description
+                  </label>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => handleAiDescription('generate')}
                       disabled={aiBusy || !form.title.trim()}
                       title={!form.title.trim() ? 'Add a title first' : 'Generate with AI'}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand/10 border border-brand/30 text-brand text-[11px] font-medium hover:bg-brand/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand/10 border border-brand/30 text-brand text-[11px] font-medium hover:bg-brand/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 3v3M12 18v3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M3 12h3M18 12h3M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" />
-                      </svg>
-                      {aiBusy ? 'Working…' : 'Generate'}
+                      {aiBusy ? (
+                        <svg className="animate-spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                        </svg>
+                      ) : (
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 3v3M12 18v3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M3 12h3M18 12h3M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>
+                        </svg>
+                      )}
+                      {aiBusy ? 'Working…' : 'AI Generate'}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleAiDescription('improve')}
                       disabled={aiBusy || !form.description.trim()}
                       title={!form.description.trim() ? 'Write something first' : 'Improve with AI'}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-graphite/40 border border-graphite text-ash text-[11px] font-medium hover:text-snow hover:border-ash/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-graphite/40 border border-graphite/60 text-ash text-[11px] font-medium hover:text-snow hover:border-ash/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
                       </svg>
                       {aiBusy ? 'Working…' : 'Improve'}
                     </button>
                   </div>
                 </div>
                 <textarea
-                  placeholder="Description"
+                  placeholder="Describe what this event is about…"
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  className="w-full rounded-[14px] bg-gray-50 dark:bg-obsidian border border-gray-200 dark:border-graphite px-4 py-3 text-[14px] leading-relaxed text-ink dark:text-snow placeholder:text-steel outline-none resize-y h-[220px] min-h-[160px] max-h-[420px]"
+                  className="w-full rounded-[14px] bg-obsidian border border-graphite px-4 py-3 text-[14px] leading-relaxed text-snow placeholder:text-steel/60 outline-none focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-transparent transition-all resize-y h-[140px] min-h-[100px] max-h-[300px]"
                 />
                 {aiError && (
-                  <p className="mt-1.5 text-[12px] text-red-400">{aiError}</p>
+                  <p className="mt-1.5 text-[12px] text-red-400 flex items-center gap-1">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    {aiError}
+                  </p>
                 )}
               </div>
-              {/* Category tag picker */}
+
+              {/* Category */}
               <div>
-                <p className="text-[13px] font-medium text-ash mb-2">Category</p>
+                <label className="block text-[12px] font-semibold text-ash uppercase tracking-wider mb-2">
+                  Category
+                </label>
                 <div className="flex flex-wrap gap-2 mb-3">
                   {PRESET_TAGS.map((tag) => (
                     <button
                       key={tag}
                       type="button"
                       onClick={() => handleTagSelect(tag)}
-                      className={`px-3.5 py-1.5 rounded-full text-[13px] font-medium transition-all duration-200 border cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-full text-[12px] font-medium transition-all duration-200 border cursor-pointer ${
                         form.category === tag
-                          ? 'bg-brand/20 border-brand/50 text-brand shadow-[0_0_8px_rgba(96,165,250,0.25)]'
-                          : 'bg-obsidian/60 border-graphite/50 text-ash hover:border-brand/30 hover:text-snow'
+                          ? 'bg-brand/20 border-brand/50 text-brand shadow-[0_0_10px_rgba(96,165,250,0.2)]'
+                          : 'bg-obsidian border-graphite/50 text-ash hover:border-brand/30 hover:text-snow'
                       }`}
                     >
                       {tag}
                     </button>
                   ))}
                 </div>
-                {/* Custom tag input */}
                 <div className="flex items-center gap-2">
                   <input
                     type="text"
-                    placeholder="Add custom tag..."
+                    placeholder="Or type a custom category…"
                     value={customTag}
                     onChange={(e) => setCustomTag(e.target.value)}
                     onKeyDown={handleCustomTagKeyDown}
-                    className="flex-1 rounded-full bg-obsidian border border-graphite px-4 py-2 text-[13px] text-snow placeholder:text-steel outline-none focus:border-brand/50 transition-colors"
+                    className="flex-1 rounded-full bg-obsidian border border-graphite px-4 py-2 text-[13px] text-snow placeholder:text-steel/60 outline-none focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-transparent transition-all"
                   />
                   <button
                     type="button"
                     onClick={handleCustomTagAdd}
                     disabled={!customTag.trim()}
-                    className="px-4 py-2 rounded-full bg-brand/15 border border-brand/30 text-brand text-[13px] font-medium hover:bg-brand/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="shrink-0 px-4 py-2 rounded-full bg-brand/15 border border-brand/30 text-brand text-[12px] font-semibold hover:bg-brand/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Add
                   </button>
                 </div>
-                {/* Selected tag display */}
                 {form.category && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="text-[12px] text-steel">Selected:</span>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand/20 border border-brand/40 text-brand text-[13px] font-medium">
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <span className="text-[11px] text-steel uppercase tracking-wider">Selected:</span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand/15 border border-brand/35 text-brand text-[12px] font-semibold">
                       {form.category}
                       <button
                         type="button"
@@ -471,62 +523,46 @@ export default function EventManagementPanel() {
                   </div>
                 )}
               </div>
-              {/* Date picker — dd-mm-yyyy */}
+
+              {/* Date */}
               <div>
-                <p className="text-[13px] font-medium text-ash mb-2">Event Date</p>
+                <label className="block text-[12px] font-semibold text-ash uppercase tracking-wider mb-2">
+                  Event Date
+                </label>
                 <div className="flex items-center gap-2">
                   <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="DD"
-                    maxLength={2}
+                    type="text" inputMode="numeric" placeholder="DD" maxLength={2}
                     value={form.date ? form.date.split('-')[2] || '' : ''}
                     onChange={(e) => {
                       const day = e.target.value.replace(/\D/g, '').slice(0, 2);
                       const parts = (form.date || '--').split('-');
-                      const y = parts[0] || '';
-                      const m = parts[1] || '';
-                      const newDate = `${y}-${m}-${day}`;
-                      setForm({ ...form, date: newDate });
+                      setForm({ ...form, date: `${parts[0]||''}-${parts[1]||''}-${day}` });
                     }}
-                    className="w-[52px] text-center rounded-[12px] bg-obsidian border border-graphite px-2 py-2.5 text-[15px] text-snow placeholder:text-steel/50 outline-none focus:border-brand/50 transition-colors"
+                    className="w-[54px] text-center rounded-[12px] bg-obsidian border border-graphite px-2 py-2.5 text-[15px] font-medium text-snow placeholder:text-steel/40 outline-none focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-transparent transition-all"
                   />
-                  <span className="text-graphite text-lg">/</span>
+                  <span className="text-graphite/70 text-xl font-light">/</span>
                   <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="MM"
-                    maxLength={2}
+                    type="text" inputMode="numeric" placeholder="MM" maxLength={2}
                     value={form.date ? form.date.split('-')[1] || '' : ''}
                     onChange={(e) => {
                       const month = e.target.value.replace(/\D/g, '').slice(0, 2);
                       const parts = (form.date || '--').split('-');
-                      const y = parts[0] || '';
-                      const d = parts[2] || '';
-                      const newDate = `${y}-${month}-${d}`;
-                      setForm({ ...form, date: newDate });
+                      setForm({ ...form, date: `${parts[0]||''}-${month}-${parts[2]||''}` });
                     }}
-                    className="w-[52px] text-center rounded-[12px] bg-obsidian border border-graphite px-2 py-2.5 text-[15px] text-snow placeholder:text-steel/50 outline-none focus:border-brand/50 transition-colors"
+                    className="w-[54px] text-center rounded-[12px] bg-obsidian border border-graphite px-2 py-2.5 text-[15px] font-medium text-snow placeholder:text-steel/40 outline-none focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-transparent transition-all"
                   />
-                  <span className="text-graphite text-lg">/</span>
+                  <span className="text-graphite/70 text-xl font-light">/</span>
                   <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="YYYY"
-                    maxLength={4}
+                    type="text" inputMode="numeric" placeholder="YYYY" maxLength={4}
                     value={form.date ? form.date.split('-')[0] || '' : ''}
                     onChange={(e) => {
                       const year = e.target.value.replace(/\D/g, '').slice(0, 4);
                       const parts = (form.date || '--').split('-');
-                      const m = parts[1] || '';
-                      const d = parts[2] || '';
-                      const newDate = `${year}-${m}-${d}`;
-                      setForm({ ...form, date: newDate });
+                      setForm({ ...form, date: `${year}-${parts[1]||''}-${parts[2]||''}` });
                     }}
-                    className="w-[72px] text-center rounded-[12px] bg-obsidian border border-graphite px-2 py-2.5 text-[15px] text-snow placeholder:text-steel/50 outline-none focus:border-brand/50 transition-colors"
+                    className="w-[76px] text-center rounded-[12px] bg-obsidian border border-graphite px-2 py-2.5 text-[15px] font-medium text-snow placeholder:text-steel/40 outline-none focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-transparent transition-all"
                   />
-                  {/* Calendar icon button for native picker fallback */}
-                  <label className="relative cursor-pointer">
+                  <label className="relative cursor-pointer ml-1">
                     <input
                       type="date"
                       value={form.date && /^\d{4}-\d{2}-\d{2}$/.test(form.date) ? form.date : ''}
@@ -534,118 +570,146 @@ export default function EventManagementPanel() {
                       className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
                     />
                     <div className="w-10 h-10 rounded-[12px] bg-brand/10 border border-brand/30 flex items-center justify-center hover:bg-brand/20 transition-colors">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-                        <line x1="16" y1="2" x2="16" y2="6"/>
-                        <line x1="8" y1="2" x2="8" y2="6"/>
-                        <line x1="3" y1="10" x2="21" y2="10"/>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
                       </svg>
                     </div>
                   </label>
                 </div>
                 {form.date && /^\d{4}-\d{2}-\d{2}$/.test(form.date) && !isNaN(new Date(form.date).getTime()) && (
-                  <p className="text-[12px] text-ash mt-1.5">
+                  <p className="text-[12px] text-brand/80 mt-2 flex items-center gap-1.5">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <polyline points="20 6 9 17 4 12"/>
+                    </svg>
                     {new Date(form.date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                   </p>
                 )}
               </div>
 
-              {/* Cover image upload */}
+              {/* Cover Image */}
               <div>
-                <p className="text-[12px] font-medium text-steel dark:text-ash mb-2">Cover Image</p>
-                <input
-                  ref={coverInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleCoverChange}
-                  className="hidden"
-                />
+                <label className="block text-[12px] font-semibold text-ash uppercase tracking-wider mb-2">
+                  Cover Image
+                </label>
+                <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverChange} className="hidden" />
                 {coverPreview ? (
-                  <div className="relative rounded-[14px] overflow-hidden aspect-[16/7] bg-gray-100 dark:bg-graphite/30">
-                    <img
-                      src={coverPreview}
-                      alt="Cover preview"
-                      className="w-full h-full object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => coverInputRef.current?.click()}
-                      className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity text-white text-[12px] font-medium"
-                    >
-                      Change image
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setCoverFile(null); setCoverPreview(''); setForm({ ...form, coverImage: '' }); }}
-                      className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
-                    >
-                      <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                        <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                      </svg>
-                    </button>
+                  <div className="relative rounded-[16px] overflow-hidden aspect-[16/7] bg-graphite/30 group">
+                    <img src={coverPreview} alt="Cover preview" className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors" />
+                    <div className="absolute inset-0 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        type="button"
+                        onClick={() => coverInputRef.current?.click()}
+                        className="px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 text-white text-[12px] font-medium hover:bg-white/30 transition-colors"
+                      >
+                        Change
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setCoverFile(null); setCoverPreview(''); setForm({ ...form, coverImage: '' }); }}
+                        className="px-3 py-1.5 rounded-full bg-red-500/80 backdrop-blur-sm border border-red-400/50 text-white text-[12px] font-medium hover:bg-red-500 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <button
                     type="button"
                     onClick={() => coverInputRef.current?.click()}
-                    className="w-full rounded-[14px] border-2 border-dashed border-gray-200 dark:border-graphite hover:border-steel dark:hover:border-ash transition-colors py-6 flex flex-col items-center gap-2 text-steel dark:text-ash"
+                    className="group w-full rounded-[16px] border-2 border-dashed border-graphite/60 hover:border-brand/50 hover:bg-brand/5 transition-all py-8 flex flex-col items-center gap-2.5 text-ash hover:text-snow"
                   >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                      <circle cx="8.5" cy="8.5" r="1.5"/>
-                      <polyline points="21 15 16 10 5 21"/>
-                    </svg>
-                    <span className="text-[13px]">Click to upload cover image</span>
-                    <span className="text-[11px] opacity-60">JPEG, PNG, WebP — max 25 MB</span>
+                    <div className="w-11 h-11 rounded-[14px] bg-graphite/40 group-hover:bg-brand/15 border border-graphite/60 group-hover:border-brand/30 flex items-center justify-center transition-all">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/>
+                        <polyline points="21 15 16 10 5 21"/>
+                      </svg>
+                    </div>
+                    <span className="text-[13px] font-medium">Click to upload cover image</span>
+                    <span className="text-[11px] opacity-50">JPEG, PNG, WebP — max 25 MB</span>
                   </button>
                 )}
               </div>
-              <label className="flex items-center gap-2 text-[13px] text-steel dark:text-ash cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.isPublic}
-                  onChange={(e) => setForm({ ...form, isPublic: e.target.checked })}
-                  className="rounded accent-ember"
-                />
-                Public event
-              </label>
+
+              {/* Visibility toggle */}
+              <div className="flex items-center justify-between rounded-[16px] bg-obsidian border border-graphite/60 px-4 py-3.5">
+                <div>
+                  <p className="text-[13px] font-semibold text-snow">Public Event</p>
+                  <p className="text-[11px] text-ash mt-0.5">
+                    {form.isPublic ? 'Anyone can view this event and its media' : 'Only admins can view this event'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, isPublic: !form.isPublic })}
+                  className={`relative w-11 h-6 rounded-full transition-all duration-300 shrink-0 focus:outline-none focus:ring-2 focus:ring-brand/40 focus:ring-offset-2 focus:ring-offset-obsidian ${
+                    form.isPublic ? 'bg-brand' : 'bg-graphite'
+                  }`}
+                  role="switch"
+                  aria-checked={form.isPublic}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ${
+                      form.isPublic ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+            </div>
+
+            {/* ── Modal footer ── */}
+            <div className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-t border-graphite/40 bg-ink">
+              <p className="text-[11px] text-steel">
+                {editingEvent ? 'Changes save immediately' : 'Event will be published right away'}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setModalOpen(false)}
+                  className="px-4 py-2 rounded-[12px] text-ash text-[13px] font-medium hover:text-snow hover:bg-graphite/40 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving || !form.title.trim()}
+                  className="inline-flex items-center justify-center gap-2 min-w-[90px] px-5 py-2 rounded-[12px] bg-brand text-obsidian text-[13px] font-semibold hover:opacity-90 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {saving ? (
+                    <>
+                      <svg className="animate-spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                      </svg>
+                      Saving…
+                    </>
+                  ) : (
+                    editingEvent ? 'Save Changes' : 'Create Event'
+                  )}
+                </button>
               </div>
             </div>
-            <div className="shrink-0 flex justify-end gap-2 px-6 py-4 border-t border-gray-100 dark:border-graphite/40 bg-white dark:bg-ink">
-              <button
-                onClick={() => setModalOpen(false)}
-                className="px-4 py-2 rounded-[14px] text-steel dark:text-ash text-[13px] hover:text-ink dark:hover:text-snow transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="px-4 py-2 rounded-[14px] bg-ink dark:bg-snow text-snow dark:text-ink text-[13px] font-medium hover:opacity-90 transition-opacity disabled:opacity-50"
-              >
-                {saving ? 'Saving...' : 'Save'}
-              </button>
-            </div>
+
           </div>
         </div>
       )}
 
       {/* Delete confirmation */}
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-obsidian/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-md">
           <div className="w-full max-w-[360px] bg-white dark:bg-ink border border-gray-200 dark:border-graphite rounded-[28px] p-6 mx-4 shadow-xl">
             <h3 className="text-ink dark:text-snow text-[16px] font-semibold mb-2">Delete Event</h3>
             <p className="text-steel dark:text-ash text-[13px] mb-6">Are you sure? This action cannot be undone.</p>
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setConfirmDelete(null)}
-                className="px-4 py-2 rounded-[14px] text-steel dark:text-ash text-[13px] hover:text-ink dark:hover:text-snow transition-colors"
+                className="px-4 py-2 rounded-[12px] text-ash text-[13px] font-medium hover:text-snow hover:bg-graphite/40 active:scale-95 transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDelete(confirmDelete)}
-                className="px-4 py-2 rounded-[14px] bg-red-600 text-white text-[13px] font-medium hover:bg-red-500 transition-colors"
+                className="px-4 py-2 rounded-[12px] bg-red-600 text-white text-[13px] font-semibold hover:bg-red-500 active:scale-95 transition-all"
               >
                 Delete
               </button>
@@ -656,7 +720,7 @@ export default function EventManagementPanel() {
 
       {/* Upload requests review modal */}
       {requestsEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 dark:bg-obsidian/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-black/50 backdrop-blur-md p-4">
           <div className="w-full max-w-[560px] max-h-[85vh] flex flex-col bg-white dark:bg-ink border border-gray-200 dark:border-graphite rounded-[28px] shadow-xl overflow-hidden">
             <div className="shrink-0 px-6 pt-6 pb-4 border-b border-gray-100 dark:border-graphite/40">
               <h3 className="text-ink dark:text-snow text-[18px] font-semibold">
@@ -725,18 +789,18 @@ export default function EventManagementPanel() {
                           </p>
                         )}
 
-                        <div className="flex justify-end gap-2 mt-1">
+                        <div className="flex justify-end gap-1.5 mt-1">
                           {r.status === 'pending' && (
                             <>
                               <button
                                 onClick={() => decideRequest(u._id, 'denied')}
-                                className="px-3 py-1.5 rounded-full text-[12px] text-red-400 hover:bg-red-500/10 transition-colors"
+                                className="px-3 py-1.5 rounded-full text-[12px] font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 active:scale-95 transition-all"
                               >
                                 Deny
                               </button>
                               <button
                                 onClick={() => decideRequest(u._id, 'approved')}
-                                className="px-3 py-1.5 rounded-full text-[12px] bg-brand/15 border border-brand/30 text-brand hover:bg-brand/25 transition-colors"
+                                className="px-3 py-1.5 rounded-full text-[12px] font-medium bg-brand/15 border border-brand/30 text-brand hover:bg-brand/25 hover:border-brand/50 active:scale-95 transition-all"
                               >
                                 Approve
                               </button>
@@ -745,7 +809,7 @@ export default function EventManagementPanel() {
                           {r.status === 'approved' && (
                             <button
                               onClick={() => revokeRequest(u._id)}
-                              className="px-3 py-1.5 rounded-full text-[12px] text-red-400 hover:bg-red-500/10 transition-colors"
+                              className="px-3 py-1.5 rounded-full text-[12px] font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 active:scale-95 transition-all"
                             >
                               Revoke
                             </button>
@@ -753,7 +817,7 @@ export default function EventManagementPanel() {
                           {r.status === 'denied' && (
                             <button
                               onClick={() => decideRequest(u._id, 'approved')}
-                              className="px-3 py-1.5 rounded-full text-[12px] bg-brand/15 border border-brand/30 text-brand hover:bg-brand/25 transition-colors"
+                              className="px-3 py-1.5 rounded-full text-[12px] font-medium bg-brand/15 border border-brand/30 text-brand hover:bg-brand/25 hover:border-brand/50 active:scale-95 transition-all"
                             >
                               Approve
                             </button>
@@ -769,7 +833,7 @@ export default function EventManagementPanel() {
             <div className="shrink-0 flex justify-end gap-2 px-6 py-4 border-t border-gray-100 dark:border-graphite/40 bg-white dark:bg-ink">
               <button
                 onClick={closeRequests}
-                className="px-4 py-2 rounded-[14px] text-steel dark:text-ash text-[13px] hover:text-ink dark:hover:text-snow transition-colors"
+                className="px-4 py-2 rounded-[12px] text-ash text-[13px] font-medium hover:text-snow hover:bg-graphite/40 active:scale-95 transition-all"
               >
                 Close
               </button>

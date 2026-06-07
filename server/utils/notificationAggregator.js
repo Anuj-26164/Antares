@@ -135,6 +135,10 @@ export async function upsertAggregatedNotification({
     existing.lastActorAt = now;
     existing.title = tpl.title;
     existing.message = buildAggregatedMessage(type, existing.actors, existing.actorCount);
+    // Backfill relatedEvent for older rows that pre-date deep-linking.
+    if (relatedEvent && !existing.relatedEvent) {
+      existing.relatedEvent = relatedEvent;
+    }
 
     await existing.save();
     return existing;

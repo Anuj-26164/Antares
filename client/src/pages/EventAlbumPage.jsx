@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../utils/api.js';
 import useAuthStore from '../store/authStore.js';
@@ -15,6 +15,7 @@ import BrandLink from '../components/common/BrandLink.jsx';
 export default function EventAlbumPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const user = useAuthStore((state) => state.user);
 
   const [event, setEvent] = useState(null);
@@ -78,6 +79,24 @@ export default function EventAlbumPage() {
       unsubscribe();
     };
   }, [id]);
+
+  // Deep-link: auto-open the media modal when ?media=<id> is in the URL.
+  // Consume the param once handled so the URL stays clean on refresh.
+  useEffect(() => {
+    const targetMediaId = searchParams.get('media');
+    if (!targetMediaId || media.length === 0) return;
+
+    const target = media.find((m) => String(m._id) === targetMediaId);
+    if (target) {
+      setSelectedMedia(target);
+      // Clean the search param from URL without triggering navigation
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('media');
+        return next;
+      }, { replace: true });
+    }
+  }, [media, searchParams]);
 
   async function fetchEventAlbum() {
     setLoading(true);

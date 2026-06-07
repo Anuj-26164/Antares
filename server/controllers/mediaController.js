@@ -1014,6 +1014,7 @@ export async function toggleFavourite(req, res, next) {
           recipient: ownerId,
           actor: { _id: req.user._id, name: req.user.name },
           relatedMedia: id,
+          relatedEvent: eventId,
         });
         notifyUser(ownerId, notif, actorId);
         emitPhotoLikedToOwner(
@@ -1127,6 +1128,7 @@ export async function addComment(req, res, next) {
           recipient: ownerId,
           actor: { _id: req.user._id, name: req.user.name },
           relatedMedia: id,
+          relatedEvent: eventId,
         });
         notifyUser(ownerId, notif, actorId);
         emitNewCommentToUser(ownerId, commentPayload, actorId);
@@ -1273,6 +1275,7 @@ export async function tagUsers(req, res, next) {
           recipient: taggedId,
           actor: { _id: req.user._id, name: req.user.name },
           relatedMedia: id,
+          relatedEvent: eventId,
         });
 
         notifyUser(taggedId, notif, actorId);
