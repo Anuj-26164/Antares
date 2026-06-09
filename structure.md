@@ -88,6 +88,7 @@ ANTARES/
 │       └── utils/
 │           ├── api.js                  # Axios instance + interceptors
 │           ├── avatar.js               # getUserAvatar utility
+│           ├── debounce.js             # Generic debounce utility
 │           └── formatters.js           # Display formatters
 └── server/                             # Express backend
     ├── index.js                        # Server entry point
@@ -123,6 +124,7 @@ ANTARES/
     │   ├── Media.js                    # Includes thumbnailUrl/thumbnailR2Key for videos
     │   ├── Notification.js
     │   ├── Settings.js
+    │   ├── UploadGrant.js              # Upload access grant requests per event
     │   └── User.js
     ├── routes/
     │   ├── adminRoutes.js
